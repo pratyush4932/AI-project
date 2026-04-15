@@ -1,0 +1,90 @@
+# Flutter
+frontend/app/build/
+frontend/app/.dart_tool/
+frontend/app/.flutter-plugins
+frontend/app/.flutter-plugins-dependencies
+frontend/app/.packages
+frontend/app/pubspec.lock
+frontend/app/coverage/
+frontend/app/.fvm/
+frontend/app/flutter_export_environment.sh
+
+# Generated files
+frontend/app/generated/
+frontend/app/.g.dart
+frontend/app/.config.dart
+
+# iOS/macOS
+frontend/app/ios/Flutter/ephemeral/
+frontend/app/ios/Flutter/flutter_export_environment.sh
+frontend/app/ios/Pods/
+frontend/app/macos/Pods/
+frontend/app/.symlinks/
+frontend/app/flutter/Flutter-Debug.xcconfig
+frontend/app/flutter/Flutter-Release.xcconfig
+
+# Android
+frontend/app/android/.gradle/
+frontend/app/android/build/
+frontend/app/android/local.properties
+frontend/app/android/.classpath
+frontend/app/android/.project
+frontend/app/android/.settings/
+
+# Linux
+frontend/app/linux/build/
+frontend/app/linux/flutter/ephemeral/
+
+# Windows
+frontend/app/windows/flutter/ephemeral/
+
+# Web
+frontend/app/web/flutter_service_worker.js
+
+# Node.js
+backend/node_modules/
+backend/npm-debug.log
+backend/yarn-error.log
+backend/.npm
+backend/dist/
+backend/build/
+
+# Environment variables
+backend/.env
+backend/.env.local
+backend/.env.*.local
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.iml
+.DS_Store
+Thumbs.db
+
+# Supabase
+.supabase/
+supabase/.branches/
+supabase/.temp/
+supabase/migrations/
+
+# Logs
+backend/logs/
+backend/*.log
+backend/lerna-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Project specific
+*.tmp
+*.bak
+*.swp
+.env.*.local
