@@ -5,7 +5,7 @@ import { validatePhone } from "../utils/validators.js";
 
 /**
  * Send OTP for Doctor Login
- * POST /doctor/send-otp
+ * POST /doctor/signin/send-otp
  * Body: { phone }
  * Only doctors added by hospitals can receive OTP
  */
@@ -28,7 +28,7 @@ export const sendDoctorOTP = async (req, res, next) => {
     if (checkError) throw checkError;
 
     if (!doctor) {
-      return res.status(404).json({ error: "Doctor not found. Only doctors added by hospitals can login." });
+      return res.status(404).json({ error: "Doctor not found. Please register or have a hospital add you first." });
     }
 
     await sendOTPService(phone);
@@ -42,7 +42,7 @@ export const sendDoctorOTP = async (req, res, next) => {
 
 /**
  * Verify OTP for Doctor Login
- * POST /doctor/verify-otp
+ * POST /doctor/signin/verify-otp
  * Body: { phone, otp }
  * Only doctors added by hospitals can login
  */
@@ -87,18 +87,18 @@ export const verifyDoctorOTP = async (req, res, next) => {
 
     // Check if doctor is associated with a hospital
     const hospitalUsers = doctorUser.hospital_users || [];
-    if (hospitalUsers.length === 0) {
-      return res.status(401).json({ error: "Doctor not associated with any hospital" });
+    let hospitalData = null;
+    let hospital = null;
+
+    if (hospitalUsers.length > 0) {
+      hospitalData = hospitalUsers[0];
+      const { data: hData } = await supabase
+        .from("hospitals")
+        .select("id, name")
+        .eq("id", hospitalData.hospital_id)
+        .single();
+      hospital = hData;
     }
-
-    const hospitalData = hospitalUsers[0];
-
-    // Get hospital details
-    const { data: hospital } = await supabase
-      .from("hospitals")
-      .select("id, name")
-      .eq("id", hospitalData.hospital_id)
-      .single();
 
     const metadata = doctorUser.metadata || {};
 
@@ -106,10 +106,10 @@ export const verifyDoctorOTP = async (req, res, next) => {
       id: doctorUser.id,
       phone,
       role: "doctor",
-      hospital_id: hospitalData.hospital_id,
+      ...(hospitalData && { hospital_id: hospitalData.hospital_id }),
     });
 
-    console.log(`[DOCTOR_LOGIN] ID: ${doctorUser.id}, Phone: ${phone}, Hospital: ${hospitalData.hospital_id}`);
+    console.log(`[DOCTOR_LOGIN] ID: ${doctorUser.id}, Phone: ${phone}${hospitalData ? `, Hospital: ${hospitalData.hospital_id}` : ""}`);
 
     res.json({
       token,
@@ -118,8 +118,8 @@ export const verifyDoctorOTP = async (req, res, next) => {
         name: doctorUser.name,
         phone,
         specialization: "N/A",
-        hospital_id: hospitalData.hospital_id,
-        hospital_name: hospital?.name || "Hospital",
+        hospital_id: hospitalData ? hospitalData.hospital_id : null,
+        hospital_name: hospital?.name || "N/A",
         role: "doctor",
       },
     });
@@ -150,12 +150,16 @@ export const getDoctorProfile = async (req, res, next) => {
       return res.status(404).json({ error: "Doctor not found" });
     }
 
-    // Get hospital details
-    const { data: hospital } = await supabase
-      .from("hospitals")
-      .select("id, name")
-      .eq("id", hospitalId)
-      .single();
+    // Get hospital details if hospitalId is present
+    let hospital = null;
+    if (hospitalId) {
+      const { data } = await supabase
+        .from("hospitals")
+        .select("id, name")
+        .eq("id", hospitalId)
+        .single();
+      hospital = data;
+    }
 
     const metadata = doctor.metadata || {};
 
@@ -168,7 +172,7 @@ export const getDoctorProfile = async (req, res, next) => {
         phone: doctor.phone,
         specialization: "N/A",
         license_no: "N/A",
-        hospital_id: hospitalId,
+        hospital_id: hospitalId || null,
         hospital: hospital ? { id: hospital.id, name: hospital.name } : null,
         status: "active",
         created_at: doctor.created_at,
@@ -177,6 +181,30 @@ export const getDoctorProfile = async (req, res, next) => {
 
   } catch (err) {
     console.error("[GET_DOCTOR_PROFILE_ERROR]", err.message);
+    next(err);
+  }
+};
+
+/**
+ * Doctor Signout
+ * POST /doctor/signout
+ * Auth: Doctor token required
+ */
+export const doctorSignout = async (req, res, next) => {
+  try {
+    // In JWT-based auth, signout is primarily a client-side action
+    // Server validates token expiration
+    // For additional security, you could log logout events or blacklist tokens
+
+    console.log(`[DOCTOR_SIGNOUT] DoctorID: ${req.user.id}`);
+
+    res.json({ 
+      message: "Doctor signed out successfully",
+      note: "Please discard the token on the client side"
+    });
+
+  } catch (err) {
+    console.error("[DOCTOR_SIGNOUT_ERROR]", err.message);
     next(err);
   }
 };

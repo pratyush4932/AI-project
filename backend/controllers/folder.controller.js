@@ -99,3 +99,59 @@ export const deleteFolder = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * Delete a file from a folder
+ * DELETE /folders/:folder_id/files/:record_id
+ * Auth: User token required (must own the folder)
+ */
+export const deleteFolderFile = async (req, res, next) => {
+  try {
+    const { folder_id, record_id } = req.params;
+    const userId = req.user.id;
+
+    if (!folder_id || !record_id) {
+      return res.status(400).json({ error: "Folder ID and Record ID are required" });
+    }
+
+    // Verify user owns this folder
+    const { data: folder, error: folderError } = await supabase
+      .from("folders")
+      .select("user_id")
+      .eq("id", folder_id)
+      .single();
+
+    if (folderError || !folder || folder.user_id !== userId) {
+      return res.status(403).json({ error: "Not authorized to delete files from this folder" });
+    }
+
+    // Verify the record belongs to this folder
+    const { data: record, error: recordError } = await supabase
+      .from("records")
+      .select("id, folder_id, user_id")
+      .eq("id", record_id)
+      .eq("folder_id", folder_id)
+      .eq("user_id", userId)
+      .single();
+
+    if (recordError || !record) {
+      return res.status(404).json({ error: "Record not found in this folder" });
+    }
+
+    // Delete the record
+    const { error: deleteError } = await supabase
+      .from("records")
+      .delete()
+      .eq("id", record_id);
+
+    if (deleteError) throw deleteError;
+
+    console.log(`[FOLDER_FILE_DELETED] Folder: ${folder_id}, Record: ${record_id}, User: ${userId}`);
+
+    res.json({ message: "File deleted from folder successfully" });
+
+  } catch (err) {
+    console.error("[DELETE_FOLDER_FILE_ERROR]", err.message);
+    next(err);
+  }
+};

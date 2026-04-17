@@ -1,8 +1,7 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const authMiddleware = require('../middleware/auth.middleware');
-const aiController = require('../controllers/ai.controller');
+import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import { summarizeDocument, summarizeSummaries } from '../controllers/ai.controller.js';
 
 const router = express.Router();
 
@@ -43,19 +42,17 @@ const upload = multer({
 });
 
 // Routes
-// POST /api/ai/summarize - Summarize documents/images with authentication (max 3 files)
+// POST /api/ai/summarize - Summarize documents/images (max 3 files)
 router.post(
   '/summarize',
-  authMiddleware, // JWT authentication middleware
   upload.array('documents', 3), // Max 3 files
-  aiController.summarizeDocument
+  summarizeDocument
 );
 
-// POST /api/ai/summarize-summaries - Aggregate multiple summaries with authentication (max 10)
+// POST /api/ai/summarize-summaries - Aggregate multiple summaries (max 10)
 router.post(
   '/summarize-summaries',
-  authMiddleware, // JWT authentication middleware
-  aiController.summarizeSummaries
+  summarizeSummaries
 );
 
-module.exports = router;
+export default router;

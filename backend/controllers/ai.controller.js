@@ -1,6 +1,6 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const fs = require('fs');
-const path = require('path');
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import fs from 'fs';
+import path from 'path';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -143,7 +143,7 @@ const SUMMARY_PROMPT = `You are a medical document analysis expert. Analyze the 
 }`;
 
 // Summarize document with Gemini AI
-exports.summarizeDocument = async (req, res) => {
+export const summarizeDocument = async (req, res) => {
   try {
     // Check if files were uploaded
     if (!req.files || req.files.length === 0) {
@@ -211,28 +211,29 @@ exports.summarizeDocument = async (req, res) => {
         let prompt;
 
         // Handle different file types
-        if (mimetype.startsWith('image/')) {
-          // For images, read as base64
-          const imageBuffer = fs.readFileSync(filePath);
-          const base64Image = imageBuffer.toString('base64');
-          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-          const imagePart = {
+        if (mimetype.startsWith('image/') || mimetype === 'application/pdf') {
+          // For images and PDFs, read as base64 and send as inlineData
+          const fileBuffer = fs.readFileSync(filePath);
+          const base64Data = fileBuffer.toString('base64');
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+          const filePart = {
             inlineData: {
-              data: base64Image,
+              data: base64Data,
               mimeType: mimetype,
             },
           };
-          prompt = [SUMMARY_PROMPT, imagePart];
+          prompt = [SUMMARY_PROMPT, filePart];
           const result = await model.generateContent(prompt);
           const response = await result.response;
           fileContent = response.text();
         } else {
-          // For PDFs and DOCX, read as text
+          // For DOCX or proper text, read as text for now
+          // (Note: For robust parsing, consider using a DOCX parser library)
           fileContent = fs.readFileSync(filePath, 'utf-8');
           if (fileContent.length === 0) {
             throw new Error('File is empty');
           }
-          const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
           prompt = `${SUMMARY_PROMPT}\n\nDocument:\n${fileContent}`;
           const result = await model.generateContent(prompt);
           const response = await result.response;
@@ -436,7 +437,7 @@ const AGGREGATE_SUMMARY_PROMPT = `{
 }`;
 
 // Aggregate and summarize multiple summaries with Gemini AI
-exports.summarizeSummaries = async (req, res) => {
+export const summarizeSummaries = async (req, res) => {
   try {
     // Validate request
     if (!req.body.summaryData || !Array.isArray(req.body.summaryData)) {
@@ -473,7 +474,7 @@ exports.summarizeSummaries = async (req, res) => {
       .join('\n---\n');
 
     // Call Gemini API
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `${AGGREGATE_SUMMARY_PROMPT}\n\nMedical Summaries to Analyze:\n${summariesText}`;
 
     const result = await model.generateContent(prompt);

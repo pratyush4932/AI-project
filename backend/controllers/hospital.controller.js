@@ -176,61 +176,68 @@ export const addDoctor = async (req, res, next) => {
       return res.status(400).json({ error: "Invalid phone format" });
     }
 
+    if (!hospitalId) {
+      return res.status(400).json({ error: "Hospital not found. Hospital user must be authenticated." });
+    }
+
     // Check if doctor phone already exists
     const { data: existingDoctor, error: checkError } = await supabase
       .from("users")
-      .select("id")
+      .select("id, role")
       .eq("phone", phone)
       .maybeSingle();
 
     if (checkError) throw checkError;
 
+    let doctorUserId;
+
     if (existingDoctor) {
-      return res.status(409).json({ error: "Doctor with this phone already exists" });
+      if (existingDoctor.role !== "doctor") {
+        return res.status(400).json({ error: `User with this phone exists but is registered as ${existingDoctor.role}` });
+      }
+      doctorUserId = existingDoctor.id;
+      console.log(`[DOCTOR_EXISTS] ID: ${doctorUserId}, Name: ${name}`);
+    } else {
+      // Create doctor user
+      const { data: doctorUser, error: userError } = await supabase
+        .from("users")
+        .insert([{ phone, name, role: "doctor" }])
+        .select()
+        .single();
+      if (userError) throw userError;
+      doctorUserId = doctorUser.id;
+      console.log(`[DOCTOR_CREATED] ID: ${doctorUserId}, Name: ${name}`);
     }
 
-    if (!hospitalId) {
-      return res.status(400).json({ error: "Hospital not found. Hospital user must be authenticated." });
-    }
-
-    // Create doctor user
-    const { data: doctorUser, error: userError } = await supabase
-      .from("users")
-      .insert([
-        {
-          phone,
-          name,
-          role: "doctor",
-        }
-      ])
-      .select()
-      .single();
-
-    if (userError) throw userError;
-
-    // Create hospital_users entry
-    const { error: hospUserError } = await supabase
+    // Check if already in hospital_users
+    const { data: existingLink, error: linkError } = await supabase
       .from("hospital_users")
-      .insert([
-        {
-          hospital_id: hospitalId,
-          user_id: doctorUser.id,
-          role: "doctor",
-        }
-      ]);
+      .select("id")
+      .eq("hospital_id", hospitalId)
+      .eq("user_id", doctorUserId)
+      .eq("role", "doctor")
+      .maybeSingle();
 
-    if (hospUserError) throw hospUserError;
+    if (linkError) throw linkError;
 
-    console.log(`[DOCTOR_ADDED] ID: ${doctorUser.id}, Name: ${name}, Hospital: ${hospitalId}`);
+    if (!existingLink) {
+      // Create hospital_users entry
+      const { error: hospUserError } = await supabase
+        .from("hospital_users")
+        .insert([{ hospital_id: hospitalId, user_id: doctorUserId, role: "doctor" }]);
+      if (hospUserError) throw hospUserError;
+    }
 
-    res.status(201).json({
+    res.status(existingDoctor ? 200 : 201).json({
       doctor: {
-        id: doctorUser.id,
+        id: doctorUserId,
         name,
         phone,
         specialization,
         hospital_id: hospitalId,
-        message: "Doctor added successfully. They can now login with their phone and OTP.",
+        message: existingDoctor
+          ? "Doctor already exists and has been successfully linked to the hospital."
+          : "Doctor added successfully. They can now login with their phone and OTP.",
       },
     });
 
@@ -728,4 +735,188 @@ const uploadFileService = async (file, path) => {
     .getPublicUrl(path);
 
   return urlData.publicUrl;
+};
+
+/**
+ * Delete a doctor from hospital
+ * DELETE /hospital/doctors/:doctor_id
+ * Auth: Hospital token required
+ */
+export const deleteDoctor = async (req, res, next) => {
+  try {
+    const { doctor_id } = req.params;
+    const hospitalId = req.user.hospital_id;
+
+    if (!hospitalId) {
+      return res.status(400).json({ error: "Hospital not found. Hospital user must be authenticated." });
+    }
+
+    if (!doctor_id) {
+      return res.status(400).json({ error: "Doctor ID is required" });
+    }
+
+    // Verify the doctor belongs to this hospital
+    const { data: hospitalUser, error: checkError } = await supabase
+      .from("hospital_users")
+      .select("id, user_id, role")
+      .eq("hospital_id", hospitalId)
+      .eq("user_id", doctor_id)
+      .eq("role", "doctor")
+      .single();
+
+    if (checkError || !hospitalUser) {
+      return res.status(404).json({ error: "Doctor not found in this hospital" });
+    }
+
+    // Delete the hospital_users record (doctor association)
+    const { error: deleteError } = await supabase
+      .from("hospital_users")
+      .delete()
+      .eq("id", hospitalUser.id);
+
+    if (deleteError) throw deleteError;
+
+    console.log(`[DOCTOR_DELETED] DoctorID: ${doctor_id}, HospitalID: ${hospitalId}`);
+
+    res.json({ message: "Doctor removed from hospital successfully" });
+
+  } catch (err) {
+    console.error("[DELETE_DOCTOR_ERROR]", err.message);
+    next(err);
+  }
+};
+
+/**
+ * Delete a patient from hospital
+ * DELETE /hospital/patients/:patient_id
+ * Auth: Hospital token required
+ */
+export const deletePatient = async (req, res, next) => {
+  try {
+    const { patient_id } = req.params;
+    const hospitalId = req.user.hospital_id;
+
+    if (!hospitalId) {
+      return res.status(400).json({ error: "Hospital not found. Hospital user must be authenticated." });
+    }
+
+    if (!patient_id) {
+      return res.status(400).json({ error: "Patient ID is required" });
+    }
+
+    // Verify the patient belongs to this hospital
+    const { data: hospitalUser, error: checkError } = await supabase
+      .from("hospital_users")
+      .select("id, user_id, role")
+      .eq("hospital_id", hospitalId)
+      .eq("user_id", patient_id)
+      .eq("role", "patient")
+      .single();
+
+    if (checkError || !hospitalUser) {
+      return res.status(404).json({ error: "Patient not found in this hospital" });
+    }
+
+    // Delete the hospital_users record (patient association)
+    const { error: deleteError } = await supabase
+      .from("hospital_users")
+      .delete()
+      .eq("id", hospitalUser.id);
+
+    if (deleteError) throw deleteError;
+
+    console.log(`[PATIENT_DELETED_FROM_HOSPITAL] PatientID: ${patient_id}, HospitalID: ${hospitalId}`);
+
+    res.json({ message: "Patient removed from hospital successfully" });
+
+  } catch (err) {
+    console.error("[DELETE_PATIENT_ERROR]", err.message);
+    next(err);
+  }
+};
+
+/**
+ * Delete all documents of a patient in hospital
+ * DELETE /hospital/patients/:patient_id/documents
+ * Auth: Hospital token required
+ * Query: visit_date? (optional, delete specific visit documents)
+ */
+export const deletePatientDocuments = async (req, res, next) => {
+  try {
+    const { patient_id } = req.params;
+    const { visit_date } = req.query;
+    const hospitalId = req.user.hospital_id;
+
+    if (!hospitalId) {
+      return res.status(400).json({ error: "Hospital not found. Hospital user must be authenticated." });
+    }
+
+    if (!patient_id) {
+      return res.status(400).json({ error: "Patient ID is required" });
+    }
+
+    // Verify the patient belongs to this hospital
+    const { data: hospitalUser, error: checkError } = await supabase
+      .from("hospital_users")
+      .select("id")
+      .eq("hospital_id", hospitalId)
+      .eq("user_id", patient_id)
+      .eq("role", "patient")
+      .single();
+
+    if (checkError || !hospitalUser) {
+      return res.status(404).json({ error: "Patient not found in this hospital" });
+    }
+
+    // Build query to delete records
+    let query = supabase
+      .from("records")
+      .delete()
+      .eq("user_id", patient_id)
+      .eq("hospital_id", hospitalId)
+      .eq("source", "hospital");
+
+    // If visit_date is provided, delete only documents from that specific visit
+    if (visit_date) {
+      query = query.eq("visit_date", visit_date);
+    }
+
+    const { error: deleteError } = await query;
+
+    if (deleteError) throw deleteError;
+
+    console.log(`[PATIENT_DOCUMENTS_DELETED] PatientID: ${patient_id}, HospitalID: ${hospitalId}, VisitDate: ${visit_date || "all"}`);
+
+    res.json({ 
+      message: visit_date ? `Documents from ${visit_date} deleted successfully` : "All documents deleted successfully"
+    });
+
+  } catch (err) {
+    console.error("[DELETE_PATIENT_DOCUMENTS_ERROR]", err.message);
+    next(err);
+  }
+};
+
+/**
+ * Hospital Signout
+ * POST /hospital/signout
+ * Auth: Hospital token required
+ */
+export const hospitalSignout = async (req, res, next) => {
+  try {
+    // In JWT-based auth, signout is primarily a client-side action
+    // Server validates token expiration
+    // For additional security, you could log logout events or blacklist tokens
+
+    console.log(`[HOSPITAL_SIGNOUT] HospitalID: ${req.user.id}`);
+
+    res.json({ 
+      message: "Hospital signed out successfully",
+      note: "Please discard the token on the client side"
+    });
+
+  } catch (err) {
+    console.error("[HOSPITAL_SIGNOUT_ERROR]", err.message);
+    next(err);
+  }
 };

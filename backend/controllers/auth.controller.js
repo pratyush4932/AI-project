@@ -161,3 +161,27 @@ export const verifySigninOTP = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * Patient Signout
+ * POST /auth/signout
+ * Auth: Patient token required
+ */
+export const patientSignout = async (req, res, next) => {
+  try {
+    // In JWT-based auth, signout is primarily a client-side action
+    // Server validates token expiration
+    // For additional security, you could log logout events or blacklist tokens
+
+    console.log(`[PATIENT_SIGNOUT] PatientID: ${req.user.id}`);
+
+    res.json({ 
+      message: "Patient signed out successfully",
+      note: "Please discard the token on the client side"
+    });
+
+  } catch (err) {
+    console.error("[PATIENT_SIGNOUT_ERROR]", err.message);
+    next(err);
+  }
+};

@@ -5,7 +5,8 @@ const client = twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
-const isDevelopment = process.env.NODE_ENV === "development";
+// Use mock OTP unless explicitly set to production
+const isDevelopment = process.env.NODE_ENV !== "production";
 
 export const sendOTPService = async (phone) => {
   if (isDevelopment) {

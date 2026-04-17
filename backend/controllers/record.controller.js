@@ -13,10 +13,6 @@ const getFileType = (filename) => {
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
     png: 'image/png',
-    gif: 'image/gif',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
   return mimeTypes[ext] || 'application/octet-stream';
 };
@@ -86,7 +82,21 @@ export const uploadRecord = async (req, res, next) => {
     let storagePath;
 
     if (isHospitalUpload) {
-      // CASE 2: Hospital Upload
+      // Security Check: Ensure patient is associated with this hospital
+      const { data: link, error: linkError } = await supabase
+        .from("hospital_users")
+        .select("id")
+        .eq("hospital_id", hospital_id)
+        .eq("user_id", userId)
+        .eq("role", "patient")
+        .maybeSingle();
+
+      if (linkError) throw linkError;
+      if (!link) {
+        return res.status(403).json({ error: "You are not associated with this hospital. Cannot upload to their records." });
+      }
+
+      // CASE 2: Patient uploading to Hospital Section
       const visitDate = getTodayDate();
 
       recordData = {
@@ -391,6 +401,54 @@ export const getRecordsByPhone = async (req, res, next) => {
 
   } catch (err) {
     console.error("[FETCH_RECORDS_BY_PHONE_ERROR]", err.message);
+    next(err);
+  }
+};
+
+/**
+ * Delete a specific record/file
+ * DELETE /records/:record_id
+ * Auth: User token required (must own the record)
+ */
+export const deleteRecord = async (req, res, next) => {
+  try {
+    const { record_id } = req.params;
+    const userId = req.user.id;
+
+    if (!record_id) {
+      return res.status(400).json({ error: "Record ID is required" });
+    }
+
+    // Fetch the record to verify ownership
+    const { data: record, error: fetchError } = await supabase
+      .from("records")
+      .select("id, user_id, file_url, source")
+      .eq("id", record_id)
+      .single();
+
+    if (fetchError || !record) {
+      return res.status(404).json({ error: "Record not found" });
+    }
+
+    // Verify ownership - user must be the one who uploaded it or the hospital admin
+    if (record.user_id !== userId && req.user.role !== "hospital") {
+      return res.status(403).json({ error: "Not authorized to delete this record" });
+    }
+
+    // Delete the record from database
+    const { error: deleteError } = await supabase
+      .from("records")
+      .delete()
+      .eq("id", record_id);
+
+    if (deleteError) throw deleteError;
+
+    console.log(`[RECORD_DELETED] ID: ${record_id}, User: ${userId}, Source: ${record.source}`);
+
+    res.json({ message: "Record deleted successfully" });
+
+  } catch (err) {
+    console.error("[DELETE_RECORD_ERROR]", err.message);
     next(err);
   }
 };
