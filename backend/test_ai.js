@@ -90,19 +90,231 @@ const testSummarizeSummaries = async () => {
   log('🧪 TEST: Aggregate Medical Summaries', 'cyan');
   separator();
 
-  if (!lastSummaryData) {
-    log('❌ No previous summary data available to aggregate. Run summarization first (or ensure the document was a valid medical report).', 'red');
-    return false;
+  let summaryDataToUse = [];
+
+  if (lastSummaryData) {
+    summaryDataToUse = [lastSummaryData, lastSummaryData];
+  } else {
+    log('ℹ️ No previous summary data found, using mock summaries for testing...', 'cyan');
+    summaryDataToUse = [
+      {
+        "success": true,
+        "fileName": "Report_Gen_1.pdf",
+        "chief_complaints": [
+          "Frequent headaches (last 1 month)",
+          "Fatigue and low energy",
+          "Occasional chest discomfort",
+          "Increased thirst"
+        ],
+        "active_medications": [
+          {
+            "name": "Metformin",
+            "dosage": "500 mg",
+            "frequency": "Twice daily"
+          }
+        ],
+        "allergies": [
+          "Penicillin"
+        ],
+        "abnormal_findings": [
+          "Hemoglobin 11.0 g/dL (Low)",
+          "Fasting Glucose 145 mg/dL (High)",
+          "Postprandial Glucose 210 mg/dL (High)",
+          "HbA1c 7.6% (High)",
+          "Total Cholesterol 260 mg/dL (High)",
+          "LDL 170 mg/dL (High)",
+          "HDL 35 mg/dL (Low)",
+          "Triglycerides 230 mg/dL (High)",
+          "SGPT (ALT) 65 U/L (High)",
+          "SGOT (AST) 58 U/L (High)",
+          "Creatinine 1.5 mg/dL (Elevated)",
+          "Blood Pressure 155/98 mmHg (Hypertension Stage 2)",
+          "ECG: Mild ST-T changes observed",
+          "Type 2 Diabetes Mellitus (Early Stage)",
+          "Dyslipidemia",
+          "Hypertension"
+        ],
+        "vital_signs": [
+          "Blood Pressure: 155/98 mmHg",
+          "Heart Rate: 95 bpm",
+          "Oxygen Saturation: 96%"
+        ],
+        "test_results": [
+          "Hemoglobin: 11.0 g/dL",
+          "WBC Count: 11,200/μL",
+          "Platelets: 2.0 lakh/µL",
+          "Fasting Glucose: 145 mg/dL",
+          "Postprandial Glucose: 210 mg/dL",
+          "HbA1c: 7.6%",
+          "Total Cholesterol: 260 mg/dL",
+          "LDL: 170 mg/dL",
+          "HDL: 35 mg/dL",
+          "Triglycerides: 230 mg/dL",
+          "SGPT (ALT): 65 U/L",
+          "SGOT (AST): 58 U/L",
+          "Bilirubin: 1.2 mg/dL",
+          "Creatinine: 1.5 mg/dL",
+          "Urea: 45 mg/dL"
+        ],
+        "confidence_score": 0.95,
+        "disclaimer": "This is an AI-generated summary for informational purposes only. Always verify with the original document and consult a qualified medical professional."
+      },
+      {
+        "success": true,
+        "fileName": "Report_Gen_2.pdf",
+        "chief_complaints": [
+          "Persistent headaches",
+          "Fatigue and low energy",
+          "Occasional chest discomfort",
+          "Increased thirst"
+        ],
+        "active_medications": [
+          {
+             "name": "Metformin",
+             "dosage": "500 mg",
+             "frequency": "Twice daily"
+          },
+          {
+             "name": "Atorvastatin",
+             "dosage": "10 mg",
+             "frequency": "Once daily"
+          },
+          {
+             "name": "Telmisartan",
+             "dosage": "40 mg",
+             "frequency": "Once daily"
+          }
+        ],
+        "allergies": [
+          "Penicillin"
+        ],
+        "abnormal_findings": [
+          "Hemoglobin 11.2 g/dL (Low)",
+          "Fasting Glucose 132 mg/dL (High)",
+          "Postprandial Glucose 198 mg/dL (High)",
+          "HbA1c 7.2% (High)",
+          "Total Cholesterol 245 mg/dL (High)",
+          "LDL 160 mg/dL (High)",
+          "HDL 38 mg/dL (Low)",
+          "Triglycerides 210 mg/dL (High)",
+          "SGPT (ALT) 62 U/L (High)",
+          "SGOT (AST) 55 U/L (High)",
+          "Creatinine 1.4 mg/dL (Slightly Elevated)",
+          "Blood Pressure 150/95 mmHg (Hypertension Stage 1)",
+          "ECG: Mild ST-T changes observed",
+          "Prediabetic progressing toward Type 2 Diabetes",
+          "Dyslipidemia (high cholesterol)",
+          "Mild hypertension",
+          "Early signs of fatty liver",
+          "Borderline kidney function"
+        ],
+        "vital_signs": [
+          "Blood Pressure: 150/95 mmHg",
+          "Heart Rate: 92 bpm",
+          "Oxygen Saturation: 97%"
+        ],
+        "test_results": [
+          "Hemoglobin: 11.2 g/dL",
+          "WBC Count: 10,800/μL",
+          "Platelets: 2.1 lakh/µL",
+          "Fasting Glucose: 132 mg/dL",
+          "Postprandial Glucose: 198 mg/dL",
+          "HbA1c: 7.2%",
+          "Total Cholesterol: 245 mg/dL",
+          "LDL: 160 mg/dL",
+          "HDL: 38 mg/dL",
+          "Triglycerides: 210 mg/dL",
+          "SGPT (ALT): 62 U/L",
+          "SGOT (AST): 55 U/L",
+          "Bilirubin: 1.1 mg/dL",
+          "Creatinine: 1.4 mg/dL",
+          "Urea: 42 mg/dL"
+        ],
+        "confidence_score": 0.98,
+        "disclaimer": "This is an AI-generated summary for informational purposes only. Always verify with the original document and consult a qualified medical professional."
+      },
+      {
+        "success": true,
+        "fileName": "Report_Gen_3.pdf",
+        "chief_complaints": [
+          "Mild headaches",
+          "Improved energy levels",
+          "No chest discomfort recently"
+        ],
+        "active_medications": [
+          {
+            "name": "Metformin",
+            "dosage": "500 mg",
+            "frequency": "Twice daily"
+          },
+          {
+            "name": "Atorvastatin",
+            "dosage": "10 mg",
+            "frequency": "Once daily"
+          },
+          {
+            "name": "Telmisartan",
+            "dosage": "40 mg",
+            "frequency": "Once daily"
+          },
+          {
+            "name": "Multivitamin supplement",
+            "dosage": "",
+            "frequency": "Once daily"
+          }
+        ],
+        "allergies": [
+          "Penicillin"
+        ],
+        "abnormal_findings": [
+          "Hemoglobin 11.5 g/dL (Low)",
+          "Fasting Glucose 118 mg/dL (Slightly High)",
+          "Postprandial Glucose 165 mg/dL (High)",
+          "HbA1c 6.8% (Borderline High)",
+          "Total Cholesterol 220 mg/dL (High)",
+          "LDL 135 mg/dL (High)",
+          "HDL 42 mg/dL (Normal)",
+          "Triglycerides 185 mg/dL (High)",
+          "SGPT (ALT) 50 U/L (Slightly Elevated)",
+          "SGOT (AST) 45 U/L (Normal)",
+          "Creatinine 1.2 mg/dL (Normal)",
+          "Blood Pressure 135/85 mmHg (Elevated)",
+          "Dyslipidemia",
+          "Hypertension under control"
+        ],
+        "vital_signs": [
+          "Blood Pressure: 135/85 mmHg",
+          "Heart Rate: 88 bpm",
+          "Oxygen Saturation: 98%"
+        ],
+        "test_results": [
+          "Hemoglobin: 11.5 g/dL",
+          "WBC Count: 9,500/μL",
+          "Platelets: 2.3 lakh/µL",
+          "Fasting Glucose: 118 mg/dL",
+          "Postprandial Glucose: 165 mg/dL",
+          "HbA1c: 6.8%",
+          "Total Cholesterol: 220 mg/dL",
+          "LDL: 135 mg/dL",
+          "HDL: 42 mg/dL",
+          "Triglycerides: 185 mg/dL",
+          "SGPT (ALT): 50 U/L",
+          "SGOT (AST): 45 U/L",
+          "Bilirubin: 1.0 mg/dL",
+          "Creatinine: 1.2 mg/dL",
+          "Urea: 38 mg/dL"
+        ],
+        "confidence_score": 0.96,
+        "disclaimer": "This is an AI-generated summary for informational purposes only. Always verify with the original document and consult a qualified medical professional."
+      }
+    ];
   }
 
   try {
     log('\n📊 Aggregating summaries...', 'yellow');
 
     const payload = {
-      summaryData: [
-        lastSummaryData,
-        lastSummaryData
-      ]
+      summaryData: summaryDataToUse
     };
 
     const response = await axios.post(`${API_BASE_URL}/ai/summarize-summaries`, payload, {

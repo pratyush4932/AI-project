@@ -215,7 +215,7 @@ export const summarizeDocument = async (req, res) => {
           // For images and PDFs, read as base64 and send as inlineData
           const fileBuffer = fs.readFileSync(filePath);
           const base64Data = fileBuffer.toString('base64');
-          const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
           const filePart = {
             inlineData: {
               data: base64Data,
@@ -233,7 +233,7 @@ export const summarizeDocument = async (req, res) => {
           if (fileContent.length === 0) {
             throw new Error('File is empty');
           }
-          const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+          const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
           prompt = `${SUMMARY_PROMPT}\n\nDocument:\n${fileContent}`;
           const result = await model.generateContent(prompt);
           const response = await result.response;
@@ -474,7 +474,7 @@ export const summarizeSummaries = async (req, res) => {
       .join('\n---\n');
 
     // Call Gemini API
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const prompt = `${AGGREGATE_SUMMARY_PROMPT}\n\nMedical Summaries to Analyze:\n${summariesText}`;
 
     const result = await model.generateContent(prompt);
