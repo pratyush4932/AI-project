@@ -6,9 +6,15 @@ import hospitalRoutes from "./routes/hospital.routes.js";
 import doctorRoutes from "./routes/doctor.routes.js";
 import folderRoutes from "./routes/folder.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
+import qrRoutes from "./routes/qr.routes.js";
+import cors from "cors";
 import { errorHandler } from "./middleware/error.middleware.js";
 
+// Initialize workers
+import './workers/aiWorker.js';
+
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 app.use("/auth", authRoutes);
@@ -17,6 +23,7 @@ app.use("/hospital", hospitalRoutes);
 app.use("/doctor", doctorRoutes);
 app.use("/folders", folderRoutes);
 app.use("/ai", aiRoutes);
+app.use("/qr", qrRoutes);
 
 app.use(errorHandler);
 const PORT = process.env.PORT || 5000;

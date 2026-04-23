@@ -74,7 +74,36 @@ const testSummarizeDocument = async () => {
       // Find the first successful summary
       const successData = response.data.data.find(d => d.success);
       if (successData) {
-        lastSummaryData = successData;
+        if (successData.fromCache) {
+          lastSummaryData = successData;
+          log('✅ Document summarized successfully (from cache)!', 'green');
+        } else if (successData.jobId) {
+          log(`⏳ Job ${successData.jobId} queued. Polling for status...`, 'yellow');
+          let state = 'waiting';
+          while (state !== 'completed' && state !== 'failed') {
+            await new Promise(r => setTimeout(r, 2000));
+            try {
+              const statusRes = await axios.get(`${API_BASE_URL}/ai/status/${successData.jobId}`);
+              state = statusRes.data.state;
+              if (state === 'completed') {
+                lastSummaryData = statusRes.data.data;
+                log('\n✅ Background processing completed successfully!', 'green');
+                console.log(JSON.stringify(lastSummaryData, null, 2));
+              } else if (state === 'failed') {
+                log(`\n❌ Background processing failed: ${statusRes.data.error}`, 'red');
+                return false;
+              } else {
+                process.stdout.write('.');
+              }
+            } catch (err) {
+              log(`\n❌ Error polling status: ${err.message}`, 'red');
+              return false;
+            }
+          }
+        } else {
+          // Fallback if structured differently
+          lastSummaryData = successData;
+        }
       }
     }
     return true;

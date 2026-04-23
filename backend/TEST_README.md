@@ -1,12 +1,14 @@
 # API Test Suite - Comprehensive Endpoint Testing
 
 ## Overview
-This test suite provides interactive command-line testing for all Medora backend endpoints (excluding AI endpoints). The suite guides you through each workflow with prompts for phone numbers and OTPs.
+This test suite provides interactive command-line testing for all Medora backend endpoints. The suite guides you through each workflow with prompts for phone numbers and OTPs.
 
 ## Files
-- **test.js** - Main comprehensive test file
+- **test.js** - Main comprehensive test file (Auth, Patients, Hospitals, Doctors)
+- **test_ai.js** - AI endpoint test file (Summarization, Aggregation, Status)
 - **test.pdf** - Sample PDF for hospital document uploads
 - **test2.pdf** - Sample PDF for patient document uploads
+- **Report.pdf** - Sample PDF for AI summarization testing
 
 ## Features
 
@@ -53,6 +55,11 @@ This test suite provides interactive command-line testing for all Medora backend
 - Full interaction between all entities
 - Complete CRUD operations
 
+#### Scenario 5: AI Analysis Flow
+- Single document upload and asynchronous summarization
+- Job status polling
+- Multiple summary aggregation and pattern analysis
+
 ## How to Run
 
 ### Prerequisites
@@ -64,8 +71,11 @@ npm start
 
 ### Run Tests
 ```bash
-# From the backend directory
+# Run core functional tests
 node test.js
+
+# Run AI pipeline tests
+node test_ai.js
 ```
 
 ### Menu Selection
@@ -142,6 +152,11 @@ License: DOC12345
 
 ### Doctor Management
 - ✅ GET /doctor/profile
+
+### AI Analysis
+- ✅ POST /ai/summarize (Async queue & Cache)
+- ✅ GET /ai/status/:jobId (Job polling)
+- ✅ POST /ai/summarize-summaries (Longitudinal aggregation)
 
 ## Example Test Run
 

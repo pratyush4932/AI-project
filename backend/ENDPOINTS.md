@@ -158,10 +158,12 @@ Uploads a medical record file (PDF/Image). Depending on the body, it goes to the
       "file_url": "https://storage.supabase.co/...",
       "file_type": "application/pdf",
       "source": "patient", // or "hospital" if hospital_id was passed
+      "ai_summary": {}, // Populated automatically for hospital uploads
       "created_at": "2026-04-17T12:00:00Z"
     }
   }
   ```
+* **AI Note**: If `hospital_id` is provided (Hospital Upload), an AI summarization job is automatically triggered. The `ai_summary` field will be updated asynchronously once processing is complete. If the file has been processed before, the summary is returned immediately from the cache.
 
 ### `GET /records/user/:userId`
 Gets all records logically grouped by Folders and Hospital Visits.
@@ -211,11 +213,12 @@ Similar to the user ID route above, but fetches using the user's phone number di
 
 ### `DELETE /records/:record_id`
 Deletes a specific record.
-* **Headers**: `Authorization: Bearer <patient_token>`
+* **Headers**: `Authorization: Bearer <patient_token>` OR `Authorization: Bearer <hospital_token>`
 * **Success Response (200 OK)**:
   ```json
   { "message": "Record deleted successfully" }
   ```
+* **Permissions**: Patients can delete their own records. Hospitals can delete any records that were uploaded to their hospital section (matching their `hospital_id`).
 
 ---
 
@@ -356,10 +359,12 @@ Allows a hospital receptionist or admin to upload a medical file for a patient d
       "id": "uuid",
       "patient_name": "John Doe",
       "file_url": "https://...",
-      "visit_date": "2026-04-17"
+      "visit_date": "2026-04-17",
+      "ai_summary": {} // Populated asynchronously
     }
   }
   ```
+* **AI Note**: Hospital uploads automatically trigger the AI summarization pipeline. The record will be updated with the `ai_summary` once the background job completes.
 
 ### `GET /hospital/info`
 A **massive aggregate endpoint** pulling all doctors and all patients (including fully populated visit chronologies and AI summarized records) linked to the hospital.
@@ -435,37 +440,111 @@ Verifies the OTP and signs the doctor into their session.
 
 ## 6. AI Analysis Endpoints
 **Route Base**: `/ai`
-The AI pipeline analyzes raw complex medical documents directly using Google's generative models (`gemini-2.5-flash`).
+
+The AI pipeline analyzes medical documents (PDFs, Images, DOCX) using Google's `gemini-2.5-flash` natively for Vision/OCR processing. Processing is handled asynchronously via a background queue (BullMQ/Redis) with automatic caching for duplicate files.
 
 ### `POST /ai/summarize`
-Summarizes an uploaded medical record (PDFs or Images) into a beautifully structured, heavily typed JSON report.
-* **Headers**: `multipart/form-data`
-  - `file`: (Binary File, e.g. blood_test.pdf)
-* **Success Response (200 OK)** *(Wait time ~15s - 30s)*:
+Initiates summarization of one or more medical documents.
+* **Headers**: `Content-Type: multipart/form-data`
+* **Body**:
+  - `documents`: (File Array, Max 3 files) - Supported: PDF, JPG, PNG, DOCX.
+* **Success Response (200 OK)**:
   ```json
   {
     "success": true,
-    "summary": {
-      "metadata": {
-        "documentType": "Blood Test Report",
-        "date": "2026-04-10"
+    "data": [
+      {
+        "fileName": "report.pdf",
+        "success": true,
+        "message": "Processing started",
+        "jobId": "123"
       },
-      "keyFindings": [
-        "Elevated Fasting Blood Sugar (110 mg/dL)",
-        "Low Vitamin D levels"
-      ],
-      "vitalSigns": {},
+      {
+        "fileName": "old_report.pdf",
+        "fromCache": true,
+        "is_medical_document": true,
+        "complaints": ["Dry cough"],
+        "medications": [{"name": "Amoxicillin", "dosage": "500mg", "frequency": "TID"}],
+        "findings": ["Clear lungs"],
+        "reports": ["Chest X-Ray"],
+        "diagnosis": ["Bronchitis"],
+        "simple_summary": "Patient has a mild cough, prescribed antibiotics.",
+        "ai_model_source": "gemini-2.5-flash"
+      }
+    ],
+    "message": "Processing initiated."
+  }
+  ```
+* **Notes**: 
+  - If a file has been processed before (matching hash), it returns the cached result immediately (indicated by `"fromCache": true`).
+  - For new files, it returns a `jobId` to poll for status via the `/ai/status/:jobId` endpoint.
+
+### `GET /ai/status/:jobId`
+Checks the status of a background summarization job.
+* **Params**: `jobId` (from the summarize response)
+* **Success Response (200 OK - Completed)**:
+  ```json
+  {
+    "success": true,
+    "state": "completed",
+    "data": {
+      "fileName": "report.pdf",
+      "is_medical_document": true,
+      "complaints": [],
       "medications": [],
-      "actionItems": [
-        "Consult doctor for mildly elevated sugar"
-      ],
-      "criticalAlerts": []
+      "findings": [],
+      "reports": [],
+      "diagnosis": [],
+      "simple_summary": "...",
+      "ai_model_source": "gemini-2.5-flash"
     }
   }
   ```
+* **Success Response (200 OK - Processing)**:
+  ```json
+  {
+    "success": true,
+    "state": "active",
+    "progress": 50
+  }
+  ```
+* **Failure Response (200 OK - Failed)**:
+  ```json
+  {
+    "success": false,
+    "state": "failed",
+    "error": "Reason for failure"
+  }
+  ```
 
-### `POST /ai/extract-data`
-Similar to summarize, but explicitly designed to pull out deep contextual patient info and metadata. Uses the exact same multipart structure as `/ai/summarize`.
+### `POST /ai/summarize-summaries`
+Aggregates multiple individual document summaries into a unified longitudinal health profile.
+* **Headers**: `Content-Type: application/json`
+* **Body (JSON)**:
+  ```json
+  {
+    "summaryData": [
+      { "complaints": [...], "medications": [...], ... },
+      { "complaints": [...], "medications": [...], ... }
+    ]
+  }
+  ```
+* **Constraints**: Maximum 10 summaries per request.
+* **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "overall_health_picture": "The patient shows a history of recurring respiratory issues...",
+      "identified_patterns": [
+        "Seasonal allergies leading to asthma flare-ups",
+        "Consistent response to bronchodilators"
+      ],
+      "summary_count": 2
+    },
+    "message": "Successfully aggregated summaries."
+  }
+  ```
 
 
 ---

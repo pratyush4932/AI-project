@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
-import { summarizeDocument, summarizeSummaries } from '../controllers/ai.controller.js';
+import { summarizeDocument, summarizeSummaries, getJobStatus } from '../controllers/ai.controller.js';
 
 const router = express.Router();
 
@@ -53,6 +53,12 @@ router.post(
 router.post(
   '/summarize-summaries',
   summarizeSummaries
+);
+
+// GET /api/ai/status/:jobId - Check status of background summarization job
+router.get(
+  '/status/:jobId',
+  getJobStatus
 );
 
 export default router;

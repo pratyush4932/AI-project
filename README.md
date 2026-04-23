@@ -435,37 +435,105 @@ Verifies the OTP and signs the doctor into their session.
 
 ## 6. AI Analysis Endpoints
 **Route Base**: `/ai`
-The AI pipeline analyzes raw complex medical documents directly using Google's generative models (`gemini-2.5-flash`).
+
+The AI pipeline analyzes medical documents (PDFs, Images, DOCX) using Google's `gemini-flash-latest`. Processing is handled asynchronously via a background queue (BullMQ/Redis) with automatic caching for duplicate files.
 
 ### `POST /ai/summarize`
-Summarizes an uploaded medical record (PDFs or Images) into a beautifully structured, heavily typed JSON report.
-* **Headers**: `multipart/form-data`
-  - `file`: (Binary File, e.g. blood_test.pdf)
-* **Success Response (200 OK)** *(Wait time ~15s - 30s)*:
+Initiates summarization of one or more medical documents.
+* **Headers**: `Content-Type: multipart/form-data`
+* **Body**:
+  - `documents`: (File Array, Max 3 files) - Supported: PDF, JPG, PNG, DOCX.
+* **Success Response (200 OK)**:
   ```json
   {
     "success": true,
-    "summary": {
-      "metadata": {
-        "documentType": "Blood Test Report",
-        "date": "2026-04-10"
+    "data": [
+      {
+        "fileName": "report.pdf",
+        "success": true,
+        "message": "Processing started",
+        "jobId": "123"
       },
-      "keyFindings": [
-        "Elevated Fasting Blood Sugar (110 mg/dL)",
-        "Low Vitamin D levels"
-      ],
-      "vitalSigns": {},
+      {
+        "fileName": "old_report.pdf",
+        "fromCache": true,
+        "complaints": ["Dry cough"],
+        "medications": [{"name": "Amoxicillin", "dosage": "500mg", "frequency": "TID"}],
+        "allergies": ["Penicillin"],
+        "findings": ["Clear lungs"],
+        "simple_summary": "Patient has a mild cough, prescribed antibiotics."
+      }
+    ],
+    "message": "Processing initiated."
+  }
+  ```
+* **Notes**: 
+  - If a file has been processed before (matching hash), it returns the cached result immediately (indicated by `"fromCache": true`).
+  - For new files, it returns a `jobId` to poll for status via the `/ai/status/:jobId` endpoint.
+
+### `GET /ai/status/:jobId`
+Checks the status of a background summarization job.
+* **Params**: `jobId` (from the summarize response)
+* **Success Response (200 OK - Completed)**:
+  ```json
+  {
+    "success": true,
+    "state": "completed",
+    "data": {
+      "fileName": "report.pdf",
+      "complaints": [],
       "medications": [],
-      "actionItems": [
-        "Consult doctor for mildly elevated sugar"
-      ],
-      "criticalAlerts": []
+      "allergies": [],
+      "findings": [],
+      "simple_summary": "..."
     }
   }
   ```
+* **Success Response (200 OK - Processing)**:
+  ```json
+  {
+    "success": true,
+    "state": "active",
+    "progress": 50
+  }
+  ```
+* **Failure Response (200 OK - Failed)**:
+  ```json
+  {
+    "success": false,
+    "state": "failed",
+    "error": "Reason for failure"
+  }
+  ```
 
-### `POST /ai/extract-data`
-Similar to summarize, but explicitly designed to pull out deep contextual patient info and metadata. Uses the exact same multipart structure as `/ai/summarize`.
+### `POST /ai/summarize-summaries`
+Aggregates multiple individual document summaries into a unified longitudinal health profile.
+* **Headers**: `Content-Type: application/json`
+* **Body (JSON)**:
+  ```json
+  {
+    "summaryData": [
+      { "complaints": [...], "medications": [...], ... },
+      { "complaints": [...], "medications": [...], ... }
+    ]
+  }
+  ```
+* **Constraints**: Maximum 10 summaries per request.
+* **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "overall_health_picture": "The patient shows a history of recurring respiratory issues...",
+      "identified_patterns": [
+        "Seasonal allergies leading to asthma flare-ups",
+        "Consistent response to bronchodilators"
+      ],
+      "summary_count": 2
+    },
+    "message": "Successfully aggregated summaries."
+  }
+  ```
 
 
 ---

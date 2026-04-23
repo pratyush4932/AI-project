@@ -2,6 +2,10 @@ import { supabase } from "../config/supabase.js";
 import { generateToken } from "../utils/jwt.js";
 import { sendOTPService, verifyOTPService } from "../services/twilio.service.js";
 import { validatePhone } from "../utils/validators.js";
+import fs from "fs";
+import path from "path";
+import { generateFileHash } from "../utils/hash.js";
+import { addAiJob } from "../queues/aiQueue.js";
 
 /**
  * Send OTP for Hospital Registration/Login
@@ -675,6 +679,55 @@ export const uploadPatientRecord = async (req, res, next) => {
     if (recordError) throw recordError;
 
     console.log(`[PATIENT_RECORD_UPLOAD] Hospital: ${hospitalId}, Patient: ${patient.id}, File: ${filename}, Date: ${recordVisitDate}`);
+
+    const recordId = record.id;
+
+    // Trigger AI Summarization
+    if (recordId) {
+      try {
+        const tempDir = "uploads/documents/";
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
+        fs.writeFileSync(tempFilePath, req.file.buffer);
+
+        const fileHash = await generateFileHash(tempFilePath);
+
+        // Check cache first
+        const { data: cachedData } = await supabase
+          .from("ai_summaries_cache")
+          .select("summary")
+          .eq("file_hash", fileHash)
+          .single();
+
+        if (cachedData && cachedData.summary) {
+          console.log(`[AI_CACHE_HIT] Record: ${recordId}, Hash: ${fileHash}`);
+          // Update record immediately
+          await supabase
+            .from("records")
+            .update({ ai_summary: cachedData.summary })
+            .eq("id", recordId);
+          
+          // Cleanup temp file
+          if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        } else {
+          console.log(`[AI_QUEUE_TRIGGER] Record: ${recordId}, File: ${filename}`);
+          // Add to queue
+          await addAiJob({
+            filePath: tempFilePath,
+            mimetype: fileType,
+            fileHash: fileHash,
+            originalname: filename,
+            recordId: recordId,
+          });
+        }
+      } catch (aiError) {
+        console.error("[AI_TRIGGER_ERROR]", aiError.message);
+        // Don't fail the upload if AI trigger fails
+      }
+    }
 
     res.status(201).json({
       message: "Record uploaded successfully",

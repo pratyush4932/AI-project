@@ -1,5 +1,9 @@
 import { uploadFile } from "../services/storage.service.js";
 import { supabase } from "../config/supabase.js";
+import fs from "fs";
+import path from "path";
+import { generateFileHash } from "../utils/hash.js";
+import { addAiJob } from "../queues/aiQueue.js";
 
 /**
  * Detect file type based on extension
@@ -144,6 +148,55 @@ export const uploadRecord = async (req, res, next) => {
     console.log(
       `[RECORD_CREATED] ID: ${data[0]?.id}, Source: ${recordData.source}, User: ${userId}`
     );
+
+    const recordId = data[0]?.id;
+
+    // Trigger AI Summarization for Hospital Uploads
+    if (isHospitalUpload && recordId) {
+      try {
+        const tempDir = "uploads/documents/";
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
+        fs.writeFileSync(tempFilePath, req.file.buffer);
+
+        const fileHash = await generateFileHash(tempFilePath);
+
+        // Check cache first
+        const { data: cachedData } = await supabase
+          .from("ai_summaries_cache")
+          .select("summary")
+          .eq("file_hash", fileHash)
+          .single();
+
+        if (cachedData && cachedData.summary) {
+          console.log(`[AI_CACHE_HIT] Record: ${recordId}, Hash: ${fileHash}`);
+          // Update record immediately
+          await supabase
+            .from("records")
+            .update({ ai_summary: cachedData.summary })
+            .eq("id", recordId);
+          
+          // Cleanup temp file
+          if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        } else {
+          console.log(`[AI_QUEUE_TRIGGER] Record: ${recordId}, File: ${filename}`);
+          // Add to queue
+          await addAiJob({
+            filePath: tempFilePath,
+            mimetype: fileType,
+            fileHash: fileHash,
+            originalname: filename,
+            recordId: recordId,
+          });
+        }
+      } catch (aiError) {
+        console.error("[AI_TRIGGER_ERROR]", aiError.message);
+        // Don't fail the upload if AI trigger fails
+      }
+    }
 
     res.status(201).json({ record: data[0] });
 
@@ -422,7 +475,7 @@ export const deleteRecord = async (req, res, next) => {
     // Fetch the record to verify ownership
     const { data: record, error: fetchError } = await supabase
       .from("records")
-      .select("id, user_id, file_url, source")
+      .select("id, user_id, file_url, source, hospital_id")
       .eq("id", record_id)
       .single();
 
@@ -430,8 +483,13 @@ export const deleteRecord = async (req, res, next) => {
       return res.status(404).json({ error: "Record not found" });
     }
 
-    // Verify ownership - user must be the one who uploaded it or the hospital admin
-    if (record.user_id !== userId && req.user.role !== "hospital") {
+    // Verify ownership
+    // 1. If it's a patient/user token, they must own the record (user_id match)
+    // 2. If it's a hospital token, they can only delete records where they are the hospital_id
+    const isOwner = record.user_id === userId;
+    const isAuthorizedHospital = req.user.role === "hospital" && record.hospital_id === req.user.hospital_id;
+
+    if (!isOwner && !isAuthorizedHospital) {
       return res.status(403).json({ error: "Not authorized to delete this record" });
     }
 
