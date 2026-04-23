@@ -8,7 +8,7 @@ import readline from "readline";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:6363";
+const API_BASE_URL = process.env.PUBLIC_URL || "http://localhost:6363";
 const colors = {
   reset: '\x1b[0m',
   green: '\x1b[32m',
@@ -45,10 +45,10 @@ const testSummarizeDocument = async () => {
   log('🧪 TEST: AI Document Summarization', 'cyan');
   separator();
 
-  const filePath = path.join(__dirname, 'Report.pdf');
+  const filePath = path.join(__dirname, 'samples/Report.pdf');
 
   if (!fs.existsSync(filePath)) {
-    log(`❌ Error: Report.pdf not found in ${__dirname}. Please provide a Report.pdf file to run this test.`, 'red');
+    log(`❌ Error: samples/Report.pdf not found in ${__dirname}. Please provide a Report.pdf file to run this test.`, 'red');
     return false;
   }
 

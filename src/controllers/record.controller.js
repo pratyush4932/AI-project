@@ -154,7 +154,7 @@ export const uploadRecord = async (req, res, next) => {
     // Trigger AI Summarization for Hospital Uploads
     if (isHospitalUpload && recordId) {
       try {
-        const tempDir = "uploads/documents/";
+        const tempDir = process.env.VERCEL ? "/tmp/" : "uploads/documents/";
         if (!fs.existsSync(tempDir)) {
           fs.mkdirSync(tempDir, { recursive: true });
         }

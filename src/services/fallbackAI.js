@@ -22,7 +22,7 @@ export const summarizeWithFallback = async (text) => {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       // Optional, but recommended by OpenRouter
-      'HTTP-Referer': process.env.APP_URL || 'http://localhost:6363',
+      'HTTP-Referer': process.env.PUBLIC_URL || 'http://localhost:6363',
       'X-Title': 'Medora AI Summarizer'
     },
     body: JSON.stringify({

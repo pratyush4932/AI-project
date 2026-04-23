@@ -42,17 +42,17 @@ frontend/app/windows/flutter/ephemeral/
 frontend/app/web/flutter_service_worker.js
 
 # Node.js
-backend/node_modules/
-backend/npm-debug.log
-backend/yarn-error.log
-backend/.npm
-backend/dist/
-backend/build/
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm
+dist/
+build/
 
 # Environment variables
-backend/.env
-backend/.env.local
-backend/.env.*.local
+.env
+.env.local
+.env.*.local
 
 # IDE & Editor
 .vscode/
@@ -71,9 +71,9 @@ supabase/.temp/
 supabase/migrations/
 
 # Logs
-backend/logs/
-backend/*.log
-backend/lerna-debug.log*
+logs/
+*.log
+lerna-debug.log*
 
 # OS
 .DS_Store

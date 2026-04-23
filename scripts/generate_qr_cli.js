@@ -3,7 +3,7 @@ import readline from "readline";
 import qrcode from "qrcode-terminal";
 import 'dotenv/config';
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:6363";
+const API_BASE_URL = process.env.PUBLIC_URL || "http://localhost:6363";
 const colors = {
   reset: '\x1b[0m',
   green: '\x1b[32m',

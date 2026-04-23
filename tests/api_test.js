@@ -1,3 +1,4 @@
+import "dotenv/config";
 import axios from "axios";
 import fs from "fs";
 import readline from "readline";
@@ -8,7 +9,7 @@ import FormData from "form-data";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const API_BASE_URL = "http://localhost:6363";
+const API_BASE_URL = process.env.PUBLIC_URL || "http://localhost:6363";
 const colors = {
   reset: '\x1b[0m',
   green: '\x1b[32m',
@@ -303,7 +304,7 @@ const testPatientRecords = async (folderData) => {
   try {
     // Upload record to folder
     log('\n📄 Uploading record to folder...', 'yellow');
-    const fileStream = fs.createReadStream(path.join(__dirname, 'test2.pdf'));
+    const fileStream = fs.createReadStream(path.join(__dirname, 'samples/test2.pdf'));
 
     const formData = new FormData();
     formData.append('file', fileStream);
@@ -441,7 +442,7 @@ const testHospitalRecords = async (hospitalData) => {
 
     // Upload patient record
     log('\n📄 Uploading hospital patient record...', 'yellow');
-    const fileStream = fs.createReadStream(path.join(__dirname, 'test.pdf'));
+    const fileStream = fs.createReadStream(path.join(__dirname, 'samples/test.pdf'));
 
     const formData = new FormData();
     formData.append('file', fileStream);

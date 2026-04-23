@@ -2,10 +2,10 @@ import axios from "axios";
 import fs from "fs";
 import path from "path";
 import FormData from "form-data";
-import { supabase } from "./config/supabase.js";
+import { supabase } from "../src/config/supabase.js";
 import 'dotenv/config';
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:6363";
+const API_BASE_URL = process.env.PUBLIC_URL || "http://localhost:6363";
 
 async function testHospitalUploadAi() {
   console.log("🚀 Starting Hospital Upload AI Integration Test");

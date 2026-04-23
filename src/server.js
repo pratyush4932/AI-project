@@ -25,8 +25,22 @@ app.use("/folders", folderRoutes);
 app.use("/ai", aiRoutes);
 app.use("/qr", qrRoutes);
 
+// Health Check Route
+app.get("/status", (req, res) => {
+  res.json({
+    status: "active",
+    message: "Medora API is running",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development"
+  });
+});
+
 app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+export default app;

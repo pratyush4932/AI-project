@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { supabase } from './config/supabase.js';
+import { supabase } from '../src/config/supabase.js';
 
 async function checkTokens() {
   const { data, error } = await supabase
