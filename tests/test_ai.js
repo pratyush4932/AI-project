@@ -96,6 +96,10 @@ const testSummarizeDocument = async () => {
                 process.stdout.write('.');
               }
             } catch (err) {
+              if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') {
+                process.stdout.write('R'); // Indicate retry
+                continue;
+              }
               log(`\n❌ Error polling status: ${err.message}`, 'red');
               return false;
             }

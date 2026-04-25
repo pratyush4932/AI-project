@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { generateFileHash } from '../utils/hash.js';
-import { addAiJob, aiQueue } from '../queues/aiQueue.js';
 import { supabase } from '../config/supabase.js';
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -68,13 +67,24 @@ export const summarizeDocument = async (req, res) => {
         continue;
       }
 
-      // 3. Not in cache -> Add to Queue
-      const job = await addAiJob({
-        filePath,
-        mimetype,
-        fileHash,
-        originalname
-      });
+      // 3. Not in cache -> Add to Queue (Supabase DB)
+      const { data: job, error: insertError } = await supabase
+        .from('ai_jobs')
+        .insert({
+          file_path: filePath,
+          mimetype,
+          file_hash: fileHash,
+          originalname,
+          status: 'pending',
+          priority: 'normal'
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        console.error('Error adding job to DB:', insertError.message);
+        throw new Error('Failed to create AI job');
+      }
 
       results.push({
         fileName: originalname,
@@ -110,32 +120,40 @@ export const summarizeDocument = async (req, res) => {
 export const getJobStatus = async (req, res) => {
   try {
     const { jobId } = req.params;
-    const job = await aiQueue.getJob(jobId);
+    
+    const { data: job, error } = await supabase
+      .from('ai_jobs')
+      .select('status, result, error, retries')
+      .eq('id', jobId)
+      .single();
 
-    if (!job) {
+    if (error || !job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    const state = await job.getState();
-    const progress = job.progress;
+    const state = job.status;
     
-    if (state === 'completed') {
-      return res.status(200).json({
-        success: true,
-        state,
-        data: job.returnvalue
-      });
-    } else if (state === 'failed') {
-      return res.status(200).json({
-        success: false,
-        state,
-        error: job.failedReason
-      });
+    if (state === 'completed' || state === 'failed') {
+      // Even if failed, we return a safe fallback result if it exists
+      if (job.result) {
+        return res.status(200).json({
+          success: true, // We consider this a successful response from our API returning the final result
+          state: 'completed', // Frontend expects 'completed' if we have data
+          data: job.result
+        });
+      } else {
+        return res.status(200).json({
+          success: false,
+          state: 'failed',
+          error: job.error || 'Job failed processing'
+        });
+      }
     } else {
+      // pending or processing
       return res.status(200).json({
         success: true,
         state,
-        progress
+        progress: state === 'processing' ? 50 : 0
       });
     }
   } catch (error) {

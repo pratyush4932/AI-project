@@ -1,5 +1,10 @@
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { summarizeWithFallback } from './fallbackAI.js';
+import { extractTextFromFile } from '../utils/textExtractor.js';
+import { cleanExtractedText } from '../utils/cleanText.js';
+import { validateAIResponse } from '../utils/aiValidation.js';
+import fs from 'fs';
 
 const getGenAI = () => new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -21,18 +26,22 @@ Rules:
 4. Return ONLY valid JSON.
 5. Do not invent information. Only extract diagnoses that are explicitly stated in the document.`;
 
+export const SAFE_FALLBACK_RESPONSE = {
+  is_medical_document: false,
+  complaints: [],
+  medications: [],
+  findings: [],
+  diagnosis: [],
+  simple_summary: "We could not fully process this document. Please refer to the original file.",
+  ai_model_source: "safe-fallback"
+};
+
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Parses the AI response text safely into JSON.
- * @param {string} text - Raw AI response text
- * @returns {object} - Parsed JSON object
- */
 export const parseAIResponse = (text) => {
   try {
     return JSON.parse(text);
   } catch (error) {
-    // If Gemini returns wrapped JSON (e.g., with markdown), try to extract it
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       return JSON.parse(jsonMatch[0]);
@@ -42,56 +51,88 @@ export const parseAIResponse = (text) => {
 };
 
 /**
- * Summarizes text using Gemini 1.5 Flash with retry and backoff.
- * @param {string|null} fileBase64 - Base64 encoded file data
- * @param {string|null} mimeType - MIME type of the file
- * @param {string} textContent - The locally extracted medical text (fallback)
- * @param {number} retries - Number of retries on failure
- * @returns {Promise<object>} - The structured summary
+ * Robust AI Pipeline processing
  */
-export const summarizeWithGemini = async (fileBase64, mimeType, textContent, retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      // Use gemini-2.5-flash because pro quota is exceeded
-      const genAI = getGenAI();
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+export const processDocumentWithAI = async (filePath, mimetype) => {
+  let fileBase64 = null;
+  if (fs.existsSync(filePath)) {
+    fileBase64 = fs.readFileSync(filePath, { encoding: 'base64' });
+  }
 
-      // Delay to respect rate limits (1 second before 2nd and subsequent tries)
-      if (i > 0) {
-        await delay(Math.pow(2, i) * 1000); // Exponential backoff
-      }
-
-      const promptParts = [SHORT_PROMPT];
-
-      const supportedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-      if (fileBase64 && mimeType && supportedMimes.includes(mimeType)) {
-        promptParts.push({
-          inlineData: {
-            data: fileBase64,
-            mimeType: mimeType === 'image/jpg' ? 'image/jpeg' : mimeType
-          }
-        });
-        // Do NOT send the fallback text if we are sending inlineData, because Gemini might be lazy 
-        // and just read the fallback text (which might just say 'Page 1') instead of parsing the image/pdf.
-        // if (textContent && textContent.trim() !== '') {
-        //   promptParts.push(`\n\nFallback Extracted Text (in case the document text is hard to read):\n${textContent}`);
-        // }
-      } else {
-        promptParts.push(`\n\nText:\n${textContent}`);
-      }
-
+  // ATTEMPT 1: Gemini Vision (direct file)
+  try {
+    const genAI = getGenAI();
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    
+    const promptParts = [SHORT_PROMPT];
+    const supportedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    
+    if (fileBase64 && mimetype && supportedMimes.includes(mimetype)) {
+      promptParts.push({
+        inlineData: {
+          data: fileBase64,
+          mimeType: mimetype === 'image/jpg' ? 'image/jpeg' : mimetype
+        }
+      });
+      
+      console.log('Attempting Gemini Vision...');
       const result = await model.generateContent(promptParts);
-      const response = await result.response;
-      const responseText = response.text();
-
-      const parsedData = parseAIResponse(responseText);
-      parsedData.ai_model_source = 'gemini-2.5-flash';
-      return parsedData;
-    } catch (error) {
-      console.error(`Gemini call failed (attempt ${i + 1}/${retries}):`, error.message);
-      if (i === retries - 1) {
-        throw error;
+      const parsedData = parseAIResponse(result.response.text());
+      
+      if (validateAIResponse(parsedData)) {
+        parsedData.ai_model_source = 'gemini-2.5-flash-vision';
+        return parsedData;
+      } else {
+        console.warn('Gemini Vision returned invalid structure.');
       }
     }
+  } catch (error) {
+    console.error('Gemini Vision failed:', error.message);
   }
+
+  // ATTEMPT 2: Extract Text (OCR/PDF Parse) + Gemini Text
+  let rawText = '';
+  try {
+    rawText = await extractTextFromFile(filePath, mimetype);
+    const cleanedText = cleanExtractedText(rawText || '');
+    
+    if (cleanedText && cleanedText.trim() !== '') {
+      const genAI = getGenAI();
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      
+      console.log('Attempting Gemini Text (with extracted text)...');
+      const result = await model.generateContent([SHORT_PROMPT, `\n\nText:\n${cleanedText}`]);
+      const parsedData = parseAIResponse(result.response.text());
+      
+      if (validateAIResponse(parsedData)) {
+        parsedData.ai_model_source = 'gemini-2.5-flash-text';
+        return parsedData;
+      } else {
+        console.warn('Gemini Text returned invalid structure.');
+      }
+    }
+  } catch (error) {
+    console.error('Gemini Text failed:', error.message);
+  }
+
+  // ATTEMPT 3: OpenRouter Fallback
+  try {
+    const cleanedText = cleanExtractedText(rawText || '');
+    if (cleanedText && cleanedText.trim() !== '') {
+      console.log('Attempting OpenRouter fallback...');
+      const fallbackData = await summarizeWithFallback(cleanedText);
+      
+      if (validateAIResponse(fallbackData)) {
+        return fallbackData;
+      } else {
+        console.warn('OpenRouter returned invalid structure.');
+      }
+    }
+  } catch (error) {
+    console.error('OpenRouter Fallback failed:', error.message);
+  }
+
+  // ATTEMPT 4: Safe Fallback
+  console.log('All AI methods failed or returned invalid data. Returning safe fallback.');
+  return { ...SAFE_FALLBACK_RESPONSE };
 };

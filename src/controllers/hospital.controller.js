@@ -5,7 +5,7 @@ import { validatePhone } from "../utils/validators.js";
 import fs from "fs";
 import path from "path";
 import { generateFileHash } from "../utils/hash.js";
-import { addAiJob } from "../queues/aiQueue.js";
+
 
 /**
  * Send OTP for Hospital Registration/Login
@@ -714,14 +714,18 @@ export const uploadPatientRecord = async (req, res, next) => {
           if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
         } else {
           console.log(`[AI_QUEUE_TRIGGER] Record: ${recordId}, File: ${filename}`);
-          // Add to queue
-          await addAiJob({
-            filePath: tempFilePath,
-            mimetype: fileType,
-            fileHash: fileHash,
-            originalname: filename,
-            recordId: recordId,
-          });
+          // Add to queue via DB
+          await supabase
+            .from('ai_jobs')
+            .insert({
+              file_path: tempFilePath,
+              mimetype: fileType,
+              file_hash: fileHash,
+              originalname: filename,
+              record_id: recordId,
+              status: 'pending',
+              priority: 'normal'
+            });
         }
       } catch (aiError) {
         console.error("[AI_TRIGGER_ERROR]", aiError.message);

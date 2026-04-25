@@ -11,7 +11,8 @@ import cors from "cors";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 // Initialize workers
-import './workers/aiWorker.js';
+import { startWorker } from './workers/aiProcessor.js';
+startWorker();
 
 const app = express();
 app.use(cors());
