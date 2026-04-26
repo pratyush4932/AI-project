@@ -89,14 +89,6 @@ export const deleteFolder = async (req, res, next) => {
       .select("file_url")
       .eq("folder_id", folder_id);
 
-    // Delete the folder
-    const { error } = await supabase
-      .from("folders")
-      .delete()
-      .eq("id", folder_id);
-
-    if (error) throw error;
-
     // Delete the files from storage
     if (records && records.length > 0) {
       for (const record of records) {
@@ -105,6 +97,14 @@ export const deleteFolder = async (req, res, next) => {
         }
       }
     }
+
+    // Delete the folder
+    const { error } = await supabase
+      .from("folders")
+      .delete()
+      .eq("id", folder_id);
+
+    if (error) throw error;
 
     console.log(`[FOLDER_DELETED] ID: ${folder_id}, User: ${userId}`);
 
@@ -154,6 +154,11 @@ export const deleteFolderFile = async (req, res, next) => {
       return res.status(404).json({ error: "Record not found in this folder" });
     }
 
+    // Delete the file from storage
+    if (record.file_url) {
+      await deleteFile(record.file_url);
+    }
+
     // Delete the record
     const { error: deleteError } = await supabase
       .from("records")
@@ -161,11 +166,6 @@ export const deleteFolderFile = async (req, res, next) => {
       .eq("id", record_id);
 
     if (deleteError) throw deleteError;
-
-    // Delete the file from storage
-    if (record.file_url) {
-      await deleteFile(record.file_url);
-    }
 
     console.log(`[FOLDER_FILE_DELETED] Folder: ${folder_id}, Record: ${record_id}, User: ${userId}`);
 

@@ -497,6 +497,11 @@ export const deleteRecord = async (req, res, next) => {
       return res.status(403).json({ error: "Not authorized to delete this record" });
     }
 
+    // Delete the file from storage
+    if (record.file_url) {
+      await deleteFile(record.file_url);
+    }
+
     // Delete the record from database
     const { error: deleteError } = await supabase
       .from("records")
@@ -504,11 +509,6 @@ export const deleteRecord = async (req, res, next) => {
       .eq("id", record_id);
 
     if (deleteError) throw deleteError;
-
-    // Delete the file from storage
-    if (record.file_url) {
-      await deleteFile(record.file_url);
-    }
 
     console.log(`[RECORD_DELETED] ID: ${record_id}, User: ${userId}, Source: ${record.source}`);
 

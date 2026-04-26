@@ -940,6 +940,15 @@ export const deletePatientDocuments = async (req, res, next) => {
 
     const { data: recordsToDelete } = await fetchQuery;
 
+    // Delete files from storage
+    if (recordsToDelete && recordsToDelete.length > 0) {
+      for (const record of recordsToDelete) {
+        if (record.file_url) {
+          await deleteFile(record.file_url);
+        }
+      }
+    }
+
     // Build query to delete records
     let query = supabase
       .from("records")
@@ -956,15 +965,6 @@ export const deletePatientDocuments = async (req, res, next) => {
     const { error: deleteError } = await query;
 
     if (deleteError) throw deleteError;
-
-    // Delete files from storage
-    if (recordsToDelete && recordsToDelete.length > 0) {
-      for (const record of recordsToDelete) {
-        if (record.file_url) {
-          await deleteFile(record.file_url);
-        }
-      }
-    }
 
     console.log(`[PATIENT_DOCUMENTS_DELETED] PatientID: ${patient_id}, HospitalID: ${hospitalId}, VisitDate: ${visit_date || "all"}`);
 

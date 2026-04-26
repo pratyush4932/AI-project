@@ -19,7 +19,7 @@ export const deleteFile = async (fileUrl) => {
   try {
     const urlParts = fileUrl.split('/public/records/');
     if (urlParts.length > 1) {
-      const filePath = urlParts[1];
+      const filePath = decodeURIComponent(urlParts[1]);
       const { error } = await supabase.storage.from("records").remove([filePath]);
       if (error) {
         console.error(`[STORAGE_DELETE_ERROR] Failed to delete file ${filePath}:`, error.message);
