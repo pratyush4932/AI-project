@@ -1,4 +1,5 @@
 import { supabase } from "../config/supabase.js";
+import { deleteFile } from "../services/storage.service.js";
 
 /**
  * Create a new folder for a patient
@@ -82,6 +83,12 @@ export const deleteFolder = async (req, res, next) => {
       return res.status(403).json({ error: "Not authorized to delete this folder" });
     }
 
+    // Fetch all records in this folder to delete their files from storage
+    const { data: records } = await supabase
+      .from("records")
+      .select("file_url")
+      .eq("folder_id", folder_id);
+
     // Delete the folder
     const { error } = await supabase
       .from("folders")
@@ -89,6 +96,15 @@ export const deleteFolder = async (req, res, next) => {
       .eq("id", folder_id);
 
     if (error) throw error;
+
+    // Delete the files from storage
+    if (records && records.length > 0) {
+      for (const record of records) {
+        if (record.file_url) {
+          await deleteFile(record.file_url);
+        }
+      }
+    }
 
     console.log(`[FOLDER_DELETED] ID: ${folder_id}, User: ${userId}`);
 
@@ -128,7 +144,7 @@ export const deleteFolderFile = async (req, res, next) => {
     // Verify the record belongs to this folder
     const { data: record, error: recordError } = await supabase
       .from("records")
-      .select("id, folder_id, user_id")
+      .select("id, folder_id, user_id, file_url")
       .eq("id", record_id)
       .eq("folder_id", folder_id)
       .eq("user_id", userId)
@@ -145,6 +161,11 @@ export const deleteFolderFile = async (req, res, next) => {
       .eq("id", record_id);
 
     if (deleteError) throw deleteError;
+
+    // Delete the file from storage
+    if (record.file_url) {
+      await deleteFile(record.file_url);
+    }
 
     console.log(`[FOLDER_FILE_DELETED] Folder: ${folder_id}, Record: ${record_id}, User: ${userId}`);
 

@@ -1,4 +1,4 @@
-import { uploadFile } from "../services/storage.service.js";
+import { uploadFile, deleteFile } from "../services/storage.service.js";
 import { supabase } from "../config/supabase.js";
 import fs from "fs";
 import path from "path";
@@ -504,6 +504,11 @@ export const deleteRecord = async (req, res, next) => {
       .eq("id", record_id);
 
     if (deleteError) throw deleteError;
+
+    // Delete the file from storage
+    if (record.file_url) {
+      await deleteFile(record.file_url);
+    }
 
     console.log(`[RECORD_DELETED] ID: ${record_id}, User: ${userId}, Source: ${record.source}`);
 

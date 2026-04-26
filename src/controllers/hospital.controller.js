@@ -5,6 +5,7 @@ import { validatePhone } from "../utils/validators.js";
 import fs from "fs";
 import path from "path";
 import { generateFileHash } from "../utils/hash.js";
+import { deleteFile } from "../services/storage.service.js";
 
 
 /**
@@ -925,6 +926,20 @@ export const deletePatientDocuments = async (req, res, next) => {
       return res.status(404).json({ error: "Patient not found in this hospital" });
     }
 
+    // Fetch records to delete their files from storage
+    let fetchQuery = supabase
+      .from("records")
+      .select("file_url")
+      .eq("user_id", patient_id)
+      .eq("hospital_id", hospitalId)
+      .eq("source", "hospital");
+
+    if (visit_date) {
+      fetchQuery = fetchQuery.eq("visit_date", visit_date);
+    }
+
+    const { data: recordsToDelete } = await fetchQuery;
+
     // Build query to delete records
     let query = supabase
       .from("records")
@@ -941,6 +956,15 @@ export const deletePatientDocuments = async (req, res, next) => {
     const { error: deleteError } = await query;
 
     if (deleteError) throw deleteError;
+
+    // Delete files from storage
+    if (recordsToDelete && recordsToDelete.length > 0) {
+      for (const record of recordsToDelete) {
+        if (record.file_url) {
+          await deleteFile(record.file_url);
+        }
+      }
+    }
 
     console.log(`[PATIENT_DOCUMENTS_DELETED] PatientID: ${patient_id}, HospitalID: ${hospitalId}, VisitDate: ${visit_date || "all"}`);
 
