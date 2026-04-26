@@ -13,9 +13,13 @@ export const summarizeWithFallback = async (text) => {
     throw new Error('OPENROUTER_API_KEY is not configured for fallback.');
   }
 
-  // Using a free-tier model from OpenRouter
-  const model = 'google/gemma-2-9b-it:free';
-  
+  // Using a free-tier model from OpenRouter with fallbacks if rate limited
+  const models = [
+    'google/gemma-4-31b-it:free',
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'openrouter/free'
+  ];
+
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -26,7 +30,7 @@ export const summarizeWithFallback = async (text) => {
       'X-Title': 'Medora AI Summarizer'
     },
     body: JSON.stringify({
-      model: model,
+      models: models,
       messages: [
         { role: 'user', content: `${SHORT_PROMPT}\n\nText:\n${text}` }
       ]
