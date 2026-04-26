@@ -875,6 +875,35 @@ export const deletePatient = async (req, res, next) => {
       return res.status(404).json({ error: "Patient not found in this hospital" });
     }
 
+    // Fetch records to delete their files from storage
+    const { data: recordsToDelete, error: fetchDocsError } = await supabase
+      .from("records")
+      .select("file_url")
+      .eq("user_id", patient_id)
+      .eq("hospital_id", hospitalId)
+      .eq("source", "hospital");
+
+    if (fetchDocsError) throw fetchDocsError;
+
+    // Delete files from storage
+    if (recordsToDelete && recordsToDelete.length > 0) {
+      for (const record of recordsToDelete) {
+        if (record.file_url) {
+          await deleteFile(record.file_url);
+        }
+      }
+    }
+
+    // Delete records from database
+    const { error: deleteDocsError } = await supabase
+      .from("records")
+      .delete()
+      .eq("user_id", patient_id)
+      .eq("hospital_id", hospitalId)
+      .eq("source", "hospital");
+
+    if (deleteDocsError) throw deleteDocsError;
+
     // Delete the hospital_users record (patient association)
     const { error: deleteError } = await supabase
       .from("hospital_users")
