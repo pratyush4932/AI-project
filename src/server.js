@@ -15,7 +15,12 @@ import { startWorker } from './workers/aiProcessor.js';
 startWorker();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  credentials: true
+}));
 app.use(express.json());
 
 app.use("/auth", authRoutes);
@@ -25,6 +30,11 @@ app.use("/doctor", doctorRoutes);
 app.use("/folders", folderRoutes);
 app.use("/ai", aiRoutes);
 app.use("/qr", qrRoutes);
+
+// Root Route
+app.get("/", (req, res) => {
+  res.send("Medora API is up and running!");
+});
 
 // Health Check Route
 app.get("/status", (req, res) => {

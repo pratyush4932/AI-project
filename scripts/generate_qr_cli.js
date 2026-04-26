@@ -85,15 +85,23 @@ async function generateQR() {
     const folders = res.data.records_view.folders || [];
     const hospitals = res.data.hospital_view || [];
 
-    log('\nOptions:', 'yellow');
-    log('1. All Records (Everything)');
-    log('2. Only Hospital Records (Verified by Registered Hospitals)');
-    log('3. Only Personal Folders');
+    let optionIndex = 1;
+    log(`${optionIndex++}. All Records (Everything)`);
+    log(`${optionIndex++}. Only Hospital Records (Verified by Registered Hospitals)`);
+    log(`${optionIndex++}. Only Personal Folders`);
     
-    const hospitalMap = {};
-    hospitals.forEach((h, i) => {
-      hospitalMap[i + 4] = h;
-      log(`${i + 4}. Hospital: ${h.hospital_name} (${h.visits.length} visits)`);
+    const optionMap = {};
+    
+    // List Hospitals
+    hospitals.forEach((h) => {
+      optionMap[optionIndex] = { type: 'hospital', data: h };
+      log(`${optionIndex++}. Hospital: ${h.hospital_name} (${h.visits.length} visits)`);
+    });
+
+    // List Folders
+    folders.forEach((f) => {
+      optionMap[optionIndex] = { type: 'folder', data: f };
+      log(`${optionIndex++}. Folder: ${f.name} (${f.records.length} records)`);
     });
 
     const choice = await question('\n👉 Select option (number): ');
@@ -110,13 +118,17 @@ async function generateQR() {
       // Only Personal Folders
       folders.forEach(f => selectedRecords.push(...f.records.map(r => r.id)));
     } else {
-      // Specific Hospital
-      const hospital = hospitalMap[choice];
-      if (!hospital) {
+      const selection = optionMap[choice];
+      if (!selection) {
         log('❌ Invalid selection', 'red');
         return;
       }
-      hospital.visits.forEach(v => selectedRecords.push(...v.records.map(r => r.id)));
+      
+      if (selection.type === 'hospital') {
+        selection.data.visits.forEach(v => selectedRecords.push(...v.records.map(r => r.id)));
+      } else if (selection.type === 'folder') {
+        selectedRecords.push(...selection.data.records.map(r => r.id));
+      }
     }
 
     if (selectedRecords.length === 0) {
