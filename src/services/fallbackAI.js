@@ -13,7 +13,6 @@ export const summarizeWithFallback = async (text) => {
     throw new Error('OPENROUTER_API_KEY is not configured for fallback.');
   }
 
-  // Using a free-tier model from OpenRouter with fallbacks if rate limited
   const models = [
     'google/gemma-4-31b-it:free',
     'meta-llama/llama-3.3-70b-instruct:free',
