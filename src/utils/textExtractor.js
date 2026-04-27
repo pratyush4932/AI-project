@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
 import Tesseract from 'tesseract.js';
 
 /**
@@ -14,9 +14,7 @@ export const extractTextFromFile = async (filePath, mimetype) => {
   try {
     if (mimetype === 'application/pdf') {
       const dataBuffer = fs.readFileSync(filePath);
-      const parser = new PDFParse({ data: dataBuffer });
-      const data = await parser.getText();
-      await parser.destroy();
+      const data = await pdfParse(dataBuffer);
       return data.text;
     } else if (mimetype.startsWith('image/')) {
       const { data: { text } } = await Tesseract.recognize(filePath, 'eng');

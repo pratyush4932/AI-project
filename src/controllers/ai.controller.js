@@ -196,9 +196,9 @@ export const summarizeSummaries = async (req, res) => {
       .map((summary, index) => `Report ${index + 1}:\n${JSON.stringify(summary, null, 2)}`)
       .join('\n---\n');
 
-    // Requirement: Use single model only: gemini-flash-latest
+    // Requirement: Use single model only: gemini-2.5-flash
     const genAI = getGenAI();
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const prompt = `${AGGREGATE_SUMMARY_PROMPT}\n\nMedical Summaries to Analyze:\n${summariesText}`;
 
     const result = await model.generateContent(prompt);

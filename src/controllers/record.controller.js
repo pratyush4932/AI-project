@@ -151,8 +151,8 @@ export const uploadRecord = async (req, res, next) => {
 
     const recordId = data[0]?.id;
 
-    // Trigger AI Summarization for Hospital Uploads
-    if (isHospitalUpload && recordId) {
+    // Trigger AI Summarization for all uploads
+    if (recordId) {
       try {
         const tempDir = process.env.VERCEL ? "/tmp/" : "uploads/documents/";
         if (!fs.existsSync(tempDir)) {
@@ -160,7 +160,17 @@ export const uploadRecord = async (req, res, next) => {
         }
 
         const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
-        fs.writeFileSync(tempFilePath, req.file.buffer);
+        
+        // Handle both memory and disk storage from multer
+        if (req.file.buffer) {
+          fs.writeFileSync(tempFilePath, req.file.buffer);
+        } else if (req.file.path) {
+          // If already on disk, we could just use req.file.path, 
+          // but the current worker architecture expects it in uploads/documents/
+          fs.copyFileSync(req.file.path, tempFilePath);
+        } else {
+          throw new Error("No file data available for AI processing");
+        }
 
         const fileHash = await generateFileHash(tempFilePath);
 
