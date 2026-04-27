@@ -169,7 +169,7 @@ export const processDocumentWithAI = async (filePath, mimetype) => {
   }
 
   console.log(`[AI] Processing: path=${filePath}, mimetype=${mimetype}`);
-  
+
   let fileBase64 = null;
   const exists = fs.existsSync(filePath);
   console.log(`[AI] File exists on disk: ${exists}`);

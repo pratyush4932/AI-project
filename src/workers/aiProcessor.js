@@ -52,10 +52,10 @@ export const processNextJob = async () => {
     console.log(`[aiProcessor] Starting job ${job.id} for file: ${job.originalname}`);
 
     // 3. Process the file
-    try {
-      let localProcessingPath = job.file_path;
-      let isSupabaseFile = job.file_path.startsWith('ai-temp/');
+    let localProcessingPath = job.file_path;
+    let isSupabaseFile = job.file_path.startsWith('ai-temp/');
 
+    try {
       // If it's a Supabase path (Render mode), download it locally first
       if (isSupabaseFile) {
         console.log(`[aiProcessor] Downloading file from Supabase: ${job.file_path}`);

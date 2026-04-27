@@ -15,7 +15,7 @@ try {
   let rawAuth = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   if (rawAuth) {
     rawAuth = rawAuth.trim().replace(/^["']|["']$/g, '');
-    
+
     let credentials;
     if (rawAuth.startsWith('{')) {
       credentials = JSON.parse(rawAuth);
@@ -99,7 +99,7 @@ export const summarizeDocument = async (req, res) => {
       // 3. Upload to Supabase Storage for Render Compatibility (Distributed Filesystem)
       const fileBuffer = fs.readFileSync(filePath);
       const storagePath = `ai-temp/${fileHash}-${path.basename(filePath)}`;
-      
+
       const { error: uploadError } = await supabase.storage
         .from('records')
         .upload(storagePath, fileBuffer, {
@@ -165,7 +165,7 @@ export const summarizeDocument = async (req, res) => {
 export const getJobStatus = async (req, res) => {
   try {
     const { jobId } = req.params;
-    
+
     const { data: job, error } = await supabase
       .from('ai_jobs')
       .select('status, result, error, retries')
@@ -177,7 +177,7 @@ export const getJobStatus = async (req, res) => {
     }
 
     const state = job.status;
-    
+
     if (state === 'completed' || state === 'failed') {
       if (job.result) {
         return res.status(200).json({
