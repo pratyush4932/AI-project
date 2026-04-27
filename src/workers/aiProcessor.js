@@ -65,10 +65,13 @@ export const processNextJob = async () => {
 
         if (downloadError) throw new Error(`Storage download failed: ${downloadError.message}`);
 
+        console.log(`[aiProcessor] Download successful, blob size: ${fileBlob.size}`);
+
         const tempDir = os.tmpdir();
         localProcessingPath = path.join(tempDir, `medora-ai-${job.id}-${path.basename(job.file_path)}`);
         const buffer = Buffer.from(await fileBlob.arrayBuffer());
         fs.writeFileSync(localProcessingPath, buffer);
+        console.log(`[aiProcessor] File written to: ${localProcessingPath}, size: ${fs.statSync(localProcessingPath).size}`);
       }
 
       const summaryData = await processDocumentWithAI(localProcessingPath, job.mimetype);

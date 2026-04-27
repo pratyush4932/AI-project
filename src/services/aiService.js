@@ -168,9 +168,15 @@ export const processDocumentWithAI = async (filePath, mimetype) => {
     return { ...SAFE_FALLBACK_RESPONSE };
   }
 
+  console.log(`[AI] Processing: path=${filePath}, mimetype=${mimetype}`);
+  
   let fileBase64 = null;
-  if (fs.existsSync(filePath)) {
+  const exists = fs.existsSync(filePath);
+  console.log(`[AI] File exists on disk: ${exists}`);
+
+  if (exists) {
     fileBase64 = fs.readFileSync(filePath, { encoding: 'base64' });
+    console.log(`[AI] File loaded into memory, size: ${fileBase64.length} chars`);
   }
 
   let rawText = '';
