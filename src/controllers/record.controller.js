@@ -22,6 +22,51 @@ const getFileType = (filename) => {
 };
 
 /**
+ * Helper to generate signed URLs for a list of records
+ */
+const addSignedUrlsToRecords = async (records) => {
+  if (!records || records.length === 0) return records;
+
+  const paths = records.map(r => {
+    if (!r.file_url) return null;
+    const parts = r.file_url.split('/public/records/');
+    return parts.length > 1 ? decodeURIComponent(parts[1]) : null;
+  }).filter(Boolean);
+
+  if (paths.length === 0) return records;
+
+  try {
+    const { data: signedUrls, error } = await supabase.storage.from("records").createSignedUrls(paths, 3600);
+    if (error) {
+      console.error("[SIGNED_URL_ERROR]", error.message);
+      return records;
+    }
+
+    const urlMap = {};
+    signedUrls.forEach(item => {
+      if (item.signedUrl) {
+        urlMap[item.path] = item.signedUrl;
+      }
+    });
+
+    return records.map(r => {
+      if (!r.file_url) return r;
+      const parts = r.file_url.split('/public/records/');
+      if (parts.length > 1) {
+        const path = decodeURIComponent(parts[1]);
+        if (urlMap[path]) {
+          r.signed_url = urlMap[path];
+        }
+      }
+      return r;
+    });
+  } catch (err) {
+    console.error("[SIGNED_URL_EXCEPTION]", err.message);
+    return records;
+  }
+};
+
+/**
  * Get today's date in YYYY-MM-DD format
  * @returns {string} Today's date
  */
@@ -245,7 +290,7 @@ export const getRecordsByUserId = async (req, res, next) => {
     }
 
     // Fetch all records for the user
-    const { data: records, error: recordsError } = await supabase
+    const { data: recordsData, error: recordsError } = await supabase
       .from("records")
       .select(`
         *,
@@ -258,6 +303,9 @@ export const getRecordsByUserId = async (req, res, next) => {
       .order("created_at", { ascending: false });
 
     if (recordsError) throw recordsError;
+
+    // Attach signed URLs to records
+    const records = await addSignedUrlsToRecords(recordsData);
 
     // Organize records by type
     const folders = {};
@@ -280,6 +328,7 @@ export const getRecordsByUserId = async (req, res, next) => {
         folders[folderKey].records.push({
           id: record.id,
           file_url: record.file_url,
+          signed_url: record.signed_url,
           file_type: record.file_type,
           created_at: record.created_at,
           ai_summary: record.ai_summary || {
@@ -311,6 +360,7 @@ export const getRecordsByUserId = async (req, res, next) => {
         hospitalVisits[hospitalKey].visits[visitDate].records.push({
           id: record.id,
           file_url: record.file_url,
+          signed_url: record.signed_url,
           file_type: record.file_type,
           created_at: record.created_at,
           ai_summary: record.ai_summary || {
@@ -372,7 +422,7 @@ export const getRecordsByPhone = async (req, res, next) => {
     const userId = userData.id;
 
     // Fetch all records for this user
-    const { data: records, error: recordsError } = await supabase
+    const { data: recordsData, error: recordsError } = await supabase
       .from("records")
       .select(`
         *,
@@ -385,6 +435,9 @@ export const getRecordsByPhone = async (req, res, next) => {
       .order("created_at", { ascending: false });
 
     if (recordsError) throw recordsError;
+
+    // Attach signed URLs
+    const records = await addSignedUrlsToRecords(recordsData);
 
     // Organize records by type
     const folders = {};
@@ -407,6 +460,7 @@ export const getRecordsByPhone = async (req, res, next) => {
         folders[folderKey].records.push({
           id: record.id,
           file_url: record.file_url,
+          signed_url: record.signed_url,
           file_type: record.file_type,
           created_at: record.created_at,
           ai_summary: record.ai_summary || {
@@ -438,6 +492,7 @@ export const getRecordsByPhone = async (req, res, next) => {
         hospitalVisits[hospitalKey].visits[visitDate].records.push({
           id: record.id,
           file_url: record.file_url,
+          signed_url: record.signed_url,
           file_type: record.file_type,
           created_at: record.created_at,
           ai_summary: record.ai_summary || {
