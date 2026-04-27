@@ -1,7 +1,6 @@
 import fs from 'fs';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
 import Tesseract from 'tesseract.js';
 
 /**
@@ -12,13 +11,12 @@ import Tesseract from 'tesseract.js';
  */
 export const extractTextFromFile = async (filePath, mimetype) => {
   try {
-    if (mimetype === 'application/pdf') {
-      const dataBuffer = fs.readFileSync(filePath);
-      const data = await pdfParse(dataBuffer);
-      return data.text;
-    } else if (mimetype.startsWith('image/')) {
+    if (mimetype.startsWith('image/')) {
       const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
       return text;
+    } else if (mimetype === 'application/pdf') {
+      // PDF parsing removed as per user request (rely on Gemini Vision instead)
+      return '';
     } else {
       // Fallback for text files
       return fs.readFileSync(filePath, 'utf-8');

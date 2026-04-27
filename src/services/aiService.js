@@ -93,7 +93,11 @@ export const processDocumentWithAI = async (filePath, mimetype) => {
   // ATTEMPT 2: Extract Text (OCR/PDF Parse) + Gemini Text
   let rawText = '';
   try {
-    rawText = await extractTextFromFile(filePath, mimetype);
+    // Skip text extraction for PDFs (rely on Vision)
+    if (mimetype !== 'application/pdf') {
+      rawText = await extractTextFromFile(filePath, mimetype);
+    }
+    
     const cleanedText = cleanExtractedText(rawText || '');
 
     if (cleanedText && cleanedText.trim() !== '') {
