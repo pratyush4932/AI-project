@@ -89,3 +89,4 @@ ehthumbs.db
 *.swp
 .env.*.local
 *.pdf
+medora-gcp-key.json

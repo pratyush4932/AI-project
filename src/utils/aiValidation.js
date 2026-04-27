@@ -15,14 +15,11 @@ export const validateAIResponse = (data) => {
   if (typeof data.simple_summary !== 'string' || data.simple_summary.trim() === '') return false;
 
   // Check arrays
-  const arrayFields = ['complaints', 'findings', 'diagnosis']; // 'medications' and 'reports' could be optional depending on prompt, but let's check them if they exist
+  const arrayFields = ['complaints', 'medications', 'findings', 'diagnosis'];
   
   for (const field of arrayFields) {
     if (!Array.isArray(data[field])) return false;
   }
-
-  // Check medications specifically since it's an array of objects
-  if (data.medications && !Array.isArray(data.medications)) return false;
 
   return true;
 };

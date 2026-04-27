@@ -3,9 +3,38 @@ import path from 'path';
 import { generateFileHash } from '../utils/hash.js';
 import { supabase } from '../config/supabase.js';
 import 'dotenv/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
-const getGenAI = () => new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// --- AUTH & CLIENT INITIALIZATION ---
+const project = process.env.GCP_PROJECT_ID || process.env.PROJECT_ID;
+const location = process.env.LOCATION || 'us-central1';
+const modelName = 'gemini-2.5-flash';
+
+let client;
+try {
+  let rawAuth = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (rawAuth) {
+    rawAuth = rawAuth.trim().replace(/^["']|["']$/g, '');
+    
+    let credentials;
+    if (rawAuth.startsWith('{')) {
+      credentials = JSON.parse(rawAuth);
+    } else {
+      const fileContent = fs.readFileSync(rawAuth, 'utf8');
+      credentials = JSON.parse(fileContent);
+    }
+
+    client = new GoogleGenAI({
+      project,
+      location,
+      credentials,
+      vertexai: true,
+      apiVersion: 'v1'
+    });
+  }
+} catch (error) {
+  console.error("[AI Controller] Auth Error:", error.message);
+}
 
 /**
  * Endpoint to initiate document summarization
@@ -134,11 +163,10 @@ export const getJobStatus = async (req, res) => {
     const state = job.status;
     
     if (state === 'completed' || state === 'failed') {
-      // Even if failed, we return a safe fallback result if it exists
       if (job.result) {
         return res.status(200).json({
-          success: true, // We consider this a successful response from our API returning the final result
-          state: 'completed', // Frontend expects 'completed' if we have data
+          success: true,
+          state: 'completed',
           data: job.result
         });
       } else {
@@ -149,7 +177,6 @@ export const getJobStatus = async (req, res) => {
         });
       }
     } else {
-      // pending or processing
       return res.status(200).json({
         success: true,
         state,
@@ -196,13 +223,17 @@ export const summarizeSummaries = async (req, res) => {
       .map((summary, index) => `Report ${index + 1}:\n${JSON.stringify(summary, null, 2)}`)
       .join('\n---\n');
 
-    // Requirement: Use single model only: gemini-2.5-flash
-    const genAI = getGenAI();
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    if (!client) throw new Error('AI client not initialized');
+
     const prompt = `${AGGREGATE_SUMMARY_PROMPT}\n\nMedical Summaries to Analyze:\n${summariesText}`;
 
-    const result = await model.generateContent(prompt);
-    const text = await result.response.text();
+    const result = await client.models.generateContent({
+      model: modelName,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: { temperature: 0.1 }
+    });
+
+    const text = result.candidates[0].content.parts[0].text;
 
     let aggregatedData;
     try {
