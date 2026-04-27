@@ -1,6 +1,8 @@
 import { supabase } from '../config/supabase.js';
 import { processDocumentWithAI } from '../services/aiService.js';
 import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 const POLLING_INTERVAL_MS = 5000; // 5 seconds
 const MAX_RETRIES = 3;
@@ -51,7 +53,25 @@ export const processNextJob = async () => {
 
     // 3. Process the file
     try {
-      const summaryData = await processDocumentWithAI(job.file_path, job.mimetype);
+      let localProcessingPath = job.file_path;
+      let isSupabaseFile = job.file_path.startsWith('ai-temp/');
+
+      // If it's a Supabase path (Render mode), download it locally first
+      if (isSupabaseFile) {
+        console.log(`[aiProcessor] Downloading file from Supabase: ${job.file_path}`);
+        const { data: fileBlob, error: downloadError } = await supabase.storage
+          .from('records')
+          .download(job.file_path);
+
+        if (downloadError) throw new Error(`Storage download failed: ${downloadError.message}`);
+
+        const tempDir = os.tmpdir();
+        localProcessingPath = path.join(tempDir, `medora-ai-${job.id}-${path.basename(job.file_path)}`);
+        const buffer = Buffer.from(await fileBlob.arrayBuffer());
+        fs.writeFileSync(localProcessingPath, buffer);
+      }
+
+      const summaryData = await processDocumentWithAI(localProcessingPath, job.mimetype);
 
       const finalSummary = {
         success: true,
@@ -130,12 +150,25 @@ export const processNextJob = async () => {
       }
     } finally {
       // 6. Cleanup local file
-      if (fs.existsSync(job.file_path)) {
+      if (localProcessingPath && fs.existsSync(localProcessingPath)) {
         try {
-          fs.unlinkSync(job.file_path);
-          console.log(`[aiProcessor] Deleted local file: ${job.file_path}`);
+          fs.unlinkSync(localProcessingPath);
+          console.log(`[aiProcessor] Deleted local file: ${localProcessingPath}`);
         } catch (e) {
-          console.error(`[aiProcessor] Failed to delete local file: ${job.file_path}`, e.message);
+          console.error(`[aiProcessor] Failed to delete local file: ${localProcessingPath}`, e.message);
+        }
+      }
+
+      // 7. Cleanup Supabase Storage
+      if (isSupabaseFile) {
+        const { error: deleteError } = await supabase.storage
+          .from('records')
+          .remove([job.file_path]);
+        
+        if (deleteError) {
+          console.error(`[aiProcessor] Failed to delete Supabase file: ${job.file_path}`, deleteError.message);
+        } else {
+          console.log(`[aiProcessor] Deleted Supabase file: ${job.file_path}`);
         }
       }
     }

@@ -96,11 +96,27 @@ export const summarizeDocument = async (req, res) => {
         continue;
       }
 
-      // 3. Not in cache -> Add to Queue (Supabase DB)
+      // 3. Upload to Supabase Storage for Render Compatibility (Distributed Filesystem)
+      const fileBuffer = fs.readFileSync(filePath);
+      const storagePath = `ai-temp/${fileHash}-${path.basename(filePath)}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('records')
+        .upload(storagePath, fileBuffer, {
+          contentType: mimetype,
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Error uploading to Supabase Storage:', uploadError.message);
+        throw new Error('Failed to upload document for processing');
+      }
+
+      // 4. Not in cache -> Add to Queue (Supabase DB)
       const { data: job, error: insertError } = await supabase
         .from('ai_jobs')
         .insert({
-          file_path: filePath,
+          file_path: storagePath, // Now stores Supabase path
           mimetype,
           file_hash: fileHash,
           originalname,
