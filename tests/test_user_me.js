@@ -4,7 +4,7 @@ import readline from "readline";
 
 dotenv.config();
 
-const API_BASE_URL = "http://localhost:6363";
+const API_BASE_URL = process.env.PUBLIC_URL || "http://localhost:6363";
 const MOCK_OTP = "000000";
 
 const colors = {
