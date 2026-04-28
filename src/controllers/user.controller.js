@@ -33,6 +33,10 @@ export const getUserProfile = async (req, res, next) => {
         folder:folder_id (
           id,
           name
+        ),
+        hospital:hospital_id (
+          id,
+          name
         )
       `)
       .eq("user_id", userId)
@@ -81,7 +85,7 @@ export const getUserProfile = async (req, res, next) => {
         if (!hospitalVisits[hospitalKey]) {
           hospitalVisits[hospitalKey] = {
             hospital_id: record.hospital_id,
-            hospital_name: record.hospital_name || "Hospital",
+            hospital_name: record.hospital?.name || "Hospital",
             visits: {},
           };
         }

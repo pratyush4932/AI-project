@@ -10,6 +10,7 @@
   "scripts": {
     "test": "node tests/api_test.js",
     "test:ai": "node tests/test_ai.js",
+    "test:user": "node tests/test_user_me.js",
     "seed": "node scripts/seed_patient.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"
