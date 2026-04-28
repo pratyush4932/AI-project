@@ -340,6 +340,68 @@ Endpoints for patients to organize their records into folders.
 
 ---
 
+## 👤 User Management (`/user`)
+
+Endpoints for retrieving user profiles and their associated medical data (folders and records).
+
+### 1. Get My Profile
+- **Endpoint:** `GET /user/me`
+- **Auth:** Required (Patient Token)
+- **Response (200 OK):**
+  ```json
+  {
+    "user": {
+      "id": "UUID",
+      "name": "John Doe",
+      "phone": "+919876543210",
+      "role": "patient",
+      "created_at": "ISO_TIMESTAMP"
+    },
+    "records_view": {
+      "folders": [
+        {
+          "id": "UUID",
+          "name": "Blood Tests",
+          "records": [
+            {
+              "id": "UUID",
+              "file_url": "URL_STRING",
+              "signed_url": "TEMPORARY_SIGNED_URL",
+              "file_type": "application/pdf",
+              "created_at": "ISO_TIMESTAMP",
+              "ai_summary": { "key_findings": [...], "medications": [...], "alerts": [...] }
+            }
+          ]
+        }
+      ]
+    },
+    "hospital_view": [
+      {
+        "hospital_id": "UUID",
+        "hospital_name": "Apollo Hospital",
+        "visits": [
+          {
+            "date": "2023-10-27",
+            "records": [ ... ]
+          }
+        ]
+      }
+    ]
+  }
+  ```
+
+### 2. Get User Profile by ID
+- **Endpoint:** `GET /user/:userId`
+- **Auth:** Required
+- **Response (200 OK):** *(Same as Get My Profile)*
+
+### 3. Get User Profile by Phone
+- **Endpoint:** `GET /user/phone/:phone`
+- **Auth:** Required
+- **Response (200 OK):** *(Same as Get My Profile)*
+
+---
+
 ## 📑 Medical Records (`/records`)
 
 Generic endpoints for record management.
@@ -352,15 +414,7 @@ Generic endpoints for record management.
   - `folder_id`: (Optional)
   - `hospital_id`: (Optional)
 
-### 2. Get Records by User ID
-- **Endpoint:** `GET /records/user/:userId`
-- **Auth:** Required
-
-### 3. Get Records by Phone
-- **Endpoint:** `GET /records/user/phone/:phone`
-- **Auth:** Required
-
-### 4. Delete Record
+### 2. Delete Record
 - **Endpoint:** `DELETE /records/:record_id`
 - **Auth:** Required
 

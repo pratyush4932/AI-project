@@ -24,7 +24,7 @@ const getFileType = (filename) => {
 /**
  * Helper to generate signed URLs for a list of records
  */
-const addSignedUrlsToRecords = async (records) => {
+export const addSignedUrlsToRecords = async (records) => {
   if (!records || records.length === 0) return records;
 
   const paths = records.map(r => {
@@ -205,7 +205,7 @@ export const uploadRecord = async (req, res, next) => {
         }
 
         const tempFilePath = path.join(tempDir, `${Date.now()}-${filename}`);
-        
+
         // Handle both memory and disk storage from multer
         if (req.file.buffer) {
           fs.writeFileSync(tempFilePath, req.file.buffer);
@@ -233,7 +233,7 @@ export const uploadRecord = async (req, res, next) => {
             .from("records")
             .update({ ai_summary: cachedData.summary })
             .eq("id", recordId);
-          
+
           // Cleanup temp file
           if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
         } else {
@@ -265,267 +265,6 @@ export const uploadRecord = async (req, res, next) => {
   }
 };
 
-/**
- * Get all records for a specific user by user_id with structured response
- * GET /records/user/:userId
- * Returns: user details, folders with records, and hospital visits
- */
-export const getRecordsByUserId = async (req, res, next) => {
-  try {
-    const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).json({ error: "User ID is required" });
-    }
-
-    // Fetch user details
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id, name, phone, role, created_at")
-      .eq("id", userId)
-      .single();
-
-    if (userError || !userData) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Fetch all records for the user
-    const { data: recordsData, error: recordsError } = await supabase
-      .from("records")
-      .select(`
-        *,
-        folder:folder_id (
-          id,
-          name
-        )
-      `)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (recordsError) throw recordsError;
-
-    // Attach signed URLs to records
-    const records = await addSignedUrlsToRecords(recordsData);
-
-    // Organize records by type
-    const folders = {};
-    const hospitalVisits = {};
-
-    (records || []).forEach((record) => {
-      if (record.source === "patient") {
-        // Patient uploads grouped by folder
-        const folderKey = record.folder_id || "personal";
-        const folderName = record.folder?.name || "Personal";
-
-        if (!folders[folderKey]) {
-          folders[folderKey] = {
-            id: record.folder_id,
-            name: folderName,
-            records: [],
-          };
-        }
-
-        folders[folderKey].records.push({
-          id: record.id,
-          file_url: record.file_url,
-          signed_url: record.signed_url,
-          file_type: record.file_type,
-          created_at: record.created_at,
-          ai_summary: record.ai_summary || {
-            key_findings: [],
-            medications: [],
-            alerts: [],
-          },
-        });
-      } else if (record.source === "hospital") {
-        // Hospital uploads grouped by hospital and visit date
-        const hospitalKey = record.hospital_id;
-        const visitDate = record.visit_date;
-
-        if (!hospitalVisits[hospitalKey]) {
-          hospitalVisits[hospitalKey] = {
-            hospital_id: record.hospital_id,
-            hospital_name: record.hospital_name || "Hospital",
-            visits: {},
-          };
-        }
-
-        if (!hospitalVisits[hospitalKey].visits[visitDate]) {
-          hospitalVisits[hospitalKey].visits[visitDate] = {
-            date: visitDate,
-            records: [],
-          };
-        }
-
-        hospitalVisits[hospitalKey].visits[visitDate].records.push({
-          id: record.id,
-          file_url: record.file_url,
-          signed_url: record.signed_url,
-          file_type: record.file_type,
-          created_at: record.created_at,
-          ai_summary: record.ai_summary || {
-            key_findings: [],
-            medications: [],
-            alerts: [],
-          },
-        });
-      }
-    });
-
-    // Convert hospital visits object to array
-    const hospitalViewArray = Object.values(hospitalVisits).map((hospital) => ({
-      hospital_id: hospital.hospital_id,
-      hospital_name: hospital.hospital_name,
-      visits: Object.values(hospital.visits),
-    }));
-
-    console.log(`[FETCH_RECORDS] User: ${userId}, Total: ${records?.length || 0}, Folders: ${Object.keys(folders).length}, Hospitals: ${hospitalViewArray.length}`);
-
-    res.json({
-      user: userData,
-      records_view: {
-        folders: Object.values(folders),
-      },
-      hospital_view: hospitalViewArray,
-    });
-
-  } catch (err) {
-    console.error("[FETCH_RECORDS_ERROR]", err.message);
-    next(err);
-  }
-};
-
-/**
- * Get all records for a user by phone number with structured response
- * GET /records/user/phone/:phone
- * Returns: user details, folders with records, and hospital visits
- */
-export const getRecordsByPhone = async (req, res, next) => {
-  try {
-    const { phone } = req.params;
-
-    if (!phone) {
-      return res.status(400).json({ error: "Phone number is required" });
-    }
-
-    // Find user by phone
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("id, name, phone, role, created_at")
-      .eq("phone", phone)
-      .single();
-
-    if (userError || !userData) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const userId = userData.id;
-
-    // Fetch all records for this user
-    const { data: recordsData, error: recordsError } = await supabase
-      .from("records")
-      .select(`
-        *,
-        folder:folder_id (
-          id,
-          name
-        )
-      `)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (recordsError) throw recordsError;
-
-    // Attach signed URLs
-    const records = await addSignedUrlsToRecords(recordsData);
-
-    // Organize records by type
-    const folders = {};
-    const hospitalVisits = {};
-
-    (records || []).forEach((record) => {
-      if (record.source === "patient") {
-        // Patient uploads grouped by folder
-        const folderKey = record.folder_id || "personal";
-        const folderName = record.folder?.name || "Personal";
-
-        if (!folders[folderKey]) {
-          folders[folderKey] = {
-            id: record.folder_id,
-            name: folderName,
-            records: [],
-          };
-        }
-
-        folders[folderKey].records.push({
-          id: record.id,
-          file_url: record.file_url,
-          signed_url: record.signed_url,
-          file_type: record.file_type,
-          created_at: record.created_at,
-          ai_summary: record.ai_summary || {
-            key_findings: [],
-            medications: [],
-            alerts: [],
-          },
-        });
-      } else if (record.source === "hospital") {
-        // Hospital uploads grouped by hospital and visit date
-        const hospitalKey = record.hospital_id;
-        const visitDate = record.visit_date;
-
-        if (!hospitalVisits[hospitalKey]) {
-          hospitalVisits[hospitalKey] = {
-            hospital_id: record.hospital_id,
-            hospital_name: record.hospital_name || "Hospital",
-            visits: {},
-          };
-        }
-
-        if (!hospitalVisits[hospitalKey].visits[visitDate]) {
-          hospitalVisits[hospitalKey].visits[visitDate] = {
-            date: visitDate,
-            records: [],
-          };
-        }
-
-        hospitalVisits[hospitalKey].visits[visitDate].records.push({
-          id: record.id,
-          file_url: record.file_url,
-          signed_url: record.signed_url,
-          file_type: record.file_type,
-          created_at: record.created_at,
-          ai_summary: record.ai_summary || {
-            key_findings: [],
-            medications: [],
-            alerts: [],
-          },
-        });
-      }
-    });
-
-    // Convert hospital visits object to array
-    const hospitalViewArray = Object.values(hospitalVisits).map((hospital) => ({
-      hospital_id: hospital.hospital_id,
-      hospital_name: hospital.hospital_name,
-      visits: Object.values(hospital.visits),
-    }));
-
-    console.log(`[FETCH_RECORDS_BY_PHONE] Phone: ${phone}, User: ${userId}, Total: ${records?.length || 0}, Folders: ${Object.keys(folders).length}, Hospitals: ${hospitalViewArray.length}`);
-
-    res.json({
-      user: userData,
-      records_view: {
-        folders: Object.values(folders),
-      },
-      hospital_view: hospitalViewArray,
-    });
-
-  } catch (err) {
-    console.error("[FETCH_RECORDS_BY_PHONE_ERROR]", err.message);
-    next(err);
-  }
-};
 
 /**
  * Delete a specific record/file
