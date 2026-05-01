@@ -47,28 +47,35 @@ export const SHORT_PROMPT = `Analyze the provided document (clinical note, lab r
 ### OUTPUT RULES:
 
 * RETURN ONLY A VALID JSON OBJECT.
-* NO MARKDOWN (NO JSON Blocks).
+* NO MARKDOWN (NO JSON Blocks like json).
 * NO EXPLANATIONS.
 * NO PRE-TEXT OR POST-TEXT.
-* IF THE DOCUMENT IS NOT MEDICAL, SET is_medical_document TO false BUT STILL PROVIDE A simple_summary.
+* IF THE DOCUMENT IS NOT MEDICAL, SET is_medical_document TO false BUT STILL PROVIDE A simple_summary AND any available patient_details.
 
 ### JSON SCHEMA:
 
 {
-"is_medical_document": boolean,
-"complaints": [],
-"medications": [],
-"findings": [],
-"diagnosis": [],
-"simple_summary": string
+  "patient_details": {
+    "name": "string | null",
+    "age": "string | null",
+    "blood_group": "string | null",
+    "gender": "string | null",
+  },
+  "is_medical_document": boolean,
+  "complaints": [],
+  "medications": [],
+  "findings": [],
+  "diagnosis": [],
+  "simple_summary": "string"
 }
 
 ### DATA INTEGRITY:
 
-1. Extract info based ONLY on the document. Use empty arrays if categories are missing.
-2. 'simple_summary' is REQUIRED.
-3. 'is_medical_document' is boolean.
-4. Do NOT invent data.
+1. Extract info based ONLY on the document. 
+2. For missing list categories, use empty arrays []. 
+3. For missing fields in 'patient_details', return null (do not invent or guess data).Add if any other form of basic data is available which is not mentioned above.
+4. 'simple_summary' is REQUIRED.
+5. 'is_medical_document' is boolean.
 
 ### SIMPLE SUMMARY RULES (VERY IMPORTANT):
 
@@ -77,21 +84,13 @@ export const SHORT_PROMPT = `Analyze the provided document (clinical note, lab r
 * DO NOT use medical jargon (e.g., hypertension → say "high blood pressure").
 * DO NOT use complex words.
 * Keep sentences short and clear.
-* Explain what the report is about in plain terms.
+* Give the whole summary point by point. It should be easy to read.
 * Mention:
-
   * what problem is shown (if any)
   * what the doctor checked
   * what the patient should understand
-* Keep it between 40–80 words.
-* If unsure about something, say "not clearly mentioned" instead of guessing.
-
-### EXAMPLE STYLE:
-
-BAD: "The patient exhibits elevated glucose levels indicating possible hyperglycemia."
-GOOD: "The report shows that the sugar level in the blood is higher than normal. This may mean the person has high blood sugar."
-
-Return ONLY JSON.`;
+* Keep it between 40–80 words. Maximum of 7 bullet points.
+* If unsure about something, say "not clearly mentioned" instead of guessing.`;
 
 export const SAFE_FALLBACK_RESPONSE = {
   is_medical_document: false,
