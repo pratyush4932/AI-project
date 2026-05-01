@@ -144,7 +144,7 @@ export const SAFE_FALLBACK_RESPONSE = {
   medications: [],
   findings: [],
   diagnosis: [],
-  simple_summary: "We could not process this document. Please refer to the original file.",
+  simple_summary: ["We could not process this document. Please refer to the original file."],
   ai_model_source: "vertex-safe-fallback"
 };
 

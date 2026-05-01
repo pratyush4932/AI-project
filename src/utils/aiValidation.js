@@ -11,12 +11,9 @@ export const validateAIResponse = (data) => {
   // Check boolean
   if (typeof data.is_medical_document !== 'boolean') return false;
 
-  // Check string
-  if (typeof data.simple_summary !== 'string' || data.simple_summary.trim() === '') return false;
-
   // Check arrays
-  const arrayFields = ['complaints', 'medications', 'findings', 'diagnosis'];
-  
+  const arrayFields = ['complaints', 'medications', 'findings', 'diagnosis', 'simple_summary'];
+
   for (const field of arrayFields) {
     if (!Array.isArray(data[field])) return false;
   }
