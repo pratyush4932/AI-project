@@ -98,9 +98,9 @@ export const SHORT_PROMPT = `
 
   "simple_summary_rules": [
     "VERY IMPORTANT: This must be extremely simple",
-    "Write like explaining to a child or elderly person",
+    "Write like explaining to a 10 yr old child",
     "Use only common everyday words",
-    "NO medical jargon (example: 'hypertension' → 'high blood pressure')",
+    "NO medical jargon or confusing words (example: 'hypertension' → 'high blood pressure')",
     "Short sentences only",
     "Maximum 7 bullet points",
     "Total 40–80 words",
