@@ -240,7 +240,8 @@ const AGGREGATE_SUMMARY_PROMPT = `{
     "Ignore one-time anomalies unless they repeat",
     "Prioritize abnormal or clinically relevant findings over normal ones",
     "Treat missing or incomplete data as 'insufficient data' rather than guessing",
-    "Ensure each identified pattern is distinct and non-overlapping"
+    "Ensure each identified pattern is distinct and non-overlapping",
+    "Extract the patient's details from the input data if there is a collission like two different name,blood group,gender,age for same or different person then take the most recent one if for same person and if different person then retuen the values of name age,gender,blood group of the patient with the maximum frequency"
   ],
 
   "fallback_rule": "If no repeated patterns are found, return empty arrays for identified_patterns and clinical_signals, and set overall_health_picture to ['No consistent longitudinal patterns identified from available data.']",
@@ -270,6 +271,19 @@ const AGGREGATE_SUMMARY_PROMPT = `{
           "occurrences": "number of times observed",
           "note": "Why this signal stands out based on repetition",
           "confidence": "high | medium | low"
+        }
+      ]'
+      "patient details": [
+        {
+          "name": "Name of the patient",
+          "age": "Age of the patient",
+          "gender": "Gender of the patient",
+          "blood_group": "Blood group of the patient",
+          "allergies": "Allergies of the patient",
+          "previous_medical_history": "Previous medical history of the patient",
+          "current_medical_conditions": "Current medical conditions of the patient",
+          "medications": "Medications of the patient",
+          "family_medical_history": "Family medical history of the patient"
         }
       ]
     }
