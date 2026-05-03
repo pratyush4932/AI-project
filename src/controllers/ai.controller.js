@@ -224,7 +224,6 @@ const AGGREGATE_SUMMARY_PROMPT = `{
     "DO NOT USE WORDS LIKE 'likely', 'suggests disease', 'indicates condition'",
     "DO NOT INFER CAUSALITY",
     "ONLY USE DATA PROVIDED IN INPUT",
-    "ONLY IDENTIFY PATTERNS THAT APPEAR 2 OR MORE TIMES",
     "IF DATA IS INSUFFICIENT → WRITE 'insufficient data'",
     "DO NOT HALLUCINATE OR ADD MEDICAL KNOWLEDGE",
     "KEEP OUTPUT STRUCTURED, SHORT, AND CONSISTENT"
@@ -233,9 +232,9 @@ const AGGREGATE_SUMMARY_PROMPT = `{
   "processing_rules": [
     "Sort all input summaries chronologically before analysis",
     "Normalize similar terms into consistent wording",
-    "Group repeated findings across different records",
-    "Ignore one-time or isolated values unless repeated",
-    "Prefer abnormal or clinically relevant repeated data",
+    "Group related findings across different records",
+    "Highlight abnormal or clinically relevant data, even if it only appears once",
+    "If multiple records exist, prioritize repeated patterns",
     "Avoid duplication of similar patterns",
     "Treat missing data as 'insufficient data'",
     "Each pattern must be distinct and non-overlapping"
@@ -245,7 +244,8 @@ const AGGREGATE_SUMMARY_PROMPT = `{
     "increasing → values or severity rising over time",
     "decreasing → values or severity reducing",
     "stable → consistent values across records",
-    "inconsistent → fluctuating or irregular pattern"
+    "inconsistent → fluctuating or irregular pattern",
+    "single observation → only appears in one record"
   ],
 
   "bullet_preference_rule": [
@@ -267,10 +267,10 @@ const AGGREGATE_SUMMARY_PROMPT = `{
   "confidence_rules": [
     "high → repeated 3 or more times with consistent evidence",
     "medium → repeated 2 times",
-    "low → weak repetition or partial match"
+    "low → appears 1 time or weak repetition"
   ],
 
-  "fallback_rule": "If no repeated patterns are found, return empty arrays for identified_patterns and clinical_signals, and set overall_health_picture to ['No consistent patterns found from available data.']",
+  "fallback_rule": "If no significant findings or patterns are found at all, return empty arrays for identified_patterns and clinical_signals, and set overall_health_picture to ['All systems appear stable based on available data.']",
 
   "output_format": {
     "overall_health_picture": [
