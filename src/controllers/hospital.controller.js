@@ -227,10 +227,20 @@ export const addDoctor = async (req, res, next) => {
 
     if (!existingLink) {
       // Create hospital_users entry
+      const finalSpecialization = specialization || "General Physician";
       const { error: hospUserError } = await supabase
         .from("hospital_users")
-        .insert([{ hospital_id: hospitalId, user_id: doctorUserId, role: "doctor" }]);
+        .insert([{ hospital_id: hospitalId, user_id: doctorUserId, role: "doctor", specialization: finalSpecialization }]);
       if (hospUserError) throw hospUserError;
+    } else {
+      // If link exists, optionally update specialization
+      if (specialization) {
+        await supabase
+          .from("hospital_users")
+          .update({ specialization })
+          .eq("hospital_id", hospitalId)
+          .eq("user_id", doctorUserId);
+      }
     }
 
     res.status(existingDoctor ? 200 : 201).json({
@@ -270,6 +280,7 @@ export const getHospitalDoctors = async (req, res, next) => {
       .select(`
         user:user_id (id, name, phone, role),
         role,
+        specialization,
         created_at
       `)
       .eq("hospital_id", hospitalId)
@@ -282,7 +293,7 @@ export const getHospitalDoctors = async (req, res, next) => {
       id: record.user.id,
       name: record.user.name,
       phone: record.user.phone,
-      specialization: "N/A",
+      specialization: record.specialization || "General Physician",
       license_no: "N/A",
       status: "active",
       created_at: record.created_at,

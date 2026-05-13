@@ -72,7 +72,8 @@ export const verifyDoctorOTP = async (req, res, next) => {
         *,
         hospital_users (
           hospital_id,
-          role
+          role,
+          specialization
         )
       `)
       .eq("role", "doctor")
@@ -117,7 +118,7 @@ export const verifyDoctorOTP = async (req, res, next) => {
         id: doctorUser.id,
         name: doctorUser.name,
         phone,
-        specialization: "N/A",
+        specialization: hospitalData?.specialization || "General Physician",
         hospital_id: hospitalData ? hospitalData.hospital_id : null,
         hospital_name: hospital?.name || "N/A",
         role: "doctor",
@@ -142,7 +143,13 @@ export const getDoctorProfile = async (req, res, next) => {
 
     const { data: doctor, error } = await supabase
       .from("users")
-      .select("*")
+      .select(`
+        *,
+        hospital_users (
+          hospital_id,
+          specialization
+        )
+      `)
       .eq("id", doctorId)
       .single();
 
@@ -162,6 +169,8 @@ export const getDoctorProfile = async (req, res, next) => {
     }
 
     const metadata = doctor.metadata || {};
+    const hospitalUsers = doctor.hospital_users || [];
+    const specialization = hospitalUsers.find(h => h.hospital_id === hospitalId)?.specialization || hospitalUsers[0]?.specialization || "General Physician";
 
     console.log(`[GET_DOCTOR_PROFILE] ID: ${doctorId}`);
 
@@ -170,7 +179,7 @@ export const getDoctorProfile = async (req, res, next) => {
         id: doctor.id,
         name: doctor.name,
         phone: doctor.phone,
-        specialization: "N/A",
+        specialization: specialization,
         license_no: "N/A",
         hospital_id: hospitalId || null,
         hospital: hospital ? { id: hospital.id, name: hospital.name } : null,

@@ -8,6 +8,7 @@ import folderRoutes from "./routes/folder.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import qrRoutes from "./routes/qr.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import appointmentRoutes from "./routes/appointment.routes.js";
 import cors from "cors";
 import { errorHandler } from "./middleware/error.middleware.js";
 
@@ -32,6 +33,7 @@ app.use("/folders", folderRoutes);
 app.use("/ai", aiRoutes);
 app.use("/qr", qrRoutes);
 app.use("/user", userRoutes);
+app.use("/appointments", appointmentRoutes);
 
 // Root Route
 app.get("/", (req, res) => {
