@@ -506,6 +506,113 @@ Endpoints for generating and accessing records via QR tokens.
 
 ---
 
+## 📅 Appointments (`/appointments`)
+
+Endpoints for managing patient appointments with doctors.
+
+### 1. Get Available Doctors
+- **Endpoint:** `GET /appointments/doctors`
+- **Auth:** Required (Patient Token)
+- **Description:** Returns all available doctors grouped with their specializations and hospital affiliations.
+- **Response (200 OK):**
+  ```json
+  {
+    "doctors": [
+      {
+        "doctor_id": "UUID",
+        "doctor_name": "Dr. Smith",
+        "specialization": "Cardiology",
+        "hospital_id": "UUID",
+        "hospital_name": "City Hospital"
+      }
+    ]
+  }
+  ```
+
+### 2. Request Appointment
+- **Endpoint:** `POST /appointments/request`
+- **Auth:** Required (Patient Token)
+- **Request Body:**
+  ```json
+  {
+    "doctor_id": "UUID",
+    "hospital_id": "UUID",
+    "appointment_date": "2023-11-15",
+    "time_slot": "10:00 - 11:00"
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "message": "Appointment requested successfully",
+    "appointment": {
+      "id": "UUID",
+      "patient_id": "UUID",
+      "status": "pending"
+    }
+  }
+  ```
+
+### 3. Get Patient Appointments
+- **Endpoint:** `GET /appointments/patient`
+- **Auth:** Required (Patient Token)
+- **Response (200 OK):**
+  ```json
+  {
+    "appointments": [
+      {
+        "id": "UUID",
+        "appointment_date": "2023-11-15",
+        "time_slot": "10:00 - 11:00",
+        "status": "pending",
+        "doctor": { "name": "Dr. Smith" },
+        "hospital": { "name": "City Hospital" }
+      }
+    ]
+  }
+  ```
+
+### 4. Get Hospital Appointments
+- **Endpoint:** `GET /appointments/hospital`
+- **Auth:** Required (Hospital Token)
+- **Response (200 OK):**
+  ```json
+  {
+    "appointments": [
+      {
+        "id": "UUID",
+        "appointment_date": "2023-11-15",
+        "time_slot": "10:00 - 11:00",
+        "status": "pending",
+        "patient": { "name": "John Doe", "phone": "+919876543210" },
+        "doctor": { "name": "Dr. Smith" }
+      }
+    ]
+  }
+  ```
+
+### 5. Update Appointment Status
+- **Endpoint:** `PATCH /appointments/hospital/:id/status`
+- **Auth:** Required (Hospital Token)
+- **Request Body:**
+  ```json
+  {
+    "status": "accepted" // Valid: 'accepted', 'rejected', 'completed', 'cancelled'
+  }
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "message": "Appointment status updated to accepted",
+    "appointment": {
+      "id": "UUID",
+      "status": "accepted"
+    }
+  }
+  ```
+
+---
+
 ## 🛠 System & Misc
 
 ### 1. API Status
